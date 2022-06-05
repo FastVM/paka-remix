@@ -1,0 +1,22 @@
+
+def hello() {
+    def foo() {
+        0
+    }
+
+    foo()
+
+    i = 0
+    str = "hello world"
+    while i < #str {
+        putchar(str.[i])
+        i = i + 1
+    }
+    putchar(10)
+}
+
+n = 0
+while n < 10 {
+    hello()
+    n = n + 1
+}

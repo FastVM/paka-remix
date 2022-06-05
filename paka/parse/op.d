@@ -33,7 +33,7 @@ BinaryOp parseBinaryOp(string[] ops) {
         throw new Exception("no operator assignment");
     default:
         if (opName == "|>") {
-            return (Node lhs, Node rhs) { return new Form("rall", rhs, lhs); };
+            return (Node lhs, Node rhs) { return new Form("call", rhs, lhs); };
         } else if (opName == "<|") {
             return (Node lhs, Node rhs) { return new Form("call", lhs, rhs); };
         } else {

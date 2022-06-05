@@ -1,0 +1,7 @@
+x = 2
+
+def fib(n) {
+    putchar(x + n + 48)
+}
+
+fib(3)

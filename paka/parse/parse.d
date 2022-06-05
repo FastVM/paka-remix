@@ -69,7 +69,7 @@ void stripNewlines(TokenArray tokens) {
 
 Node readPostCallExtend(TokenArray tokens, Node last) {
     Node[][] args = tokens.readCallArgs;
-    while (tokens.first.isOpen("{") || tokens.first.isOperator("->")) {
+    while (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
         args[$ - 1] ~= new Form("fun", [new Form("args"), tokens.readBlock]);
     }
     foreach (argList; args) {
@@ -281,7 +281,7 @@ Node readPostExprImpl(TokenArray tokens) {
             last = new Form("fun", [
                     new Form("args", tokens.readParens), tokens.readBlock
                 ]);
-        } else if (tokens.first.isOpen("{") || tokens.first.isOperator("->")) {
+        } else if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
             last = new Form("fun", new Form("args"), tokens.readBlock);
         }
     } else if (tokens.first.isOpen("(")) {
@@ -303,7 +303,7 @@ Node readPostExprImpl(TokenArray tokens) {
         } else {
             checks = null;
         }
-        if (tokens.first.isOpen("{") || tokens.first.isOperator("->")) {
+        if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
             last = new Form("cache", tokens.readBlock, checks);
         } else {
             last = new Form("cache", tokens.readPostExpr, checks);
@@ -473,8 +473,8 @@ Node readBlockBodyImpl(TokenArray tokens) {
 /// wraps the readblock and consumes curly braces
 alias readBlock = Spanning!readBlockImpl;
 Node readBlockImpl(TokenArray tokens) {
-    if (tokens.first.isOperator("->")) {
-        tokens.nextIs(Token.Type.operator, "->");
+    if (tokens.first.isOperator(":")) {
+        tokens.nextIs(Token.Type.operator, ":");
         return tokens.readStmt;
     } else {
         tokens.nextIs(Token.Type.open, "{");
