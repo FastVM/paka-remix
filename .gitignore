@@ -2,3 +2,5 @@
 dub.selections.json
 minivm-paka
 .dub
+out.*
+the_end_times

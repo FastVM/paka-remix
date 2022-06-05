@@ -11,15 +11,10 @@ struct Output {
     enum Type {
         none,
         imut,
-        mut,
     }
 
     size_t reg;
     Type type;
-
-    bool isMut() {
-        return type == Type.mut;
-    }
 
     bool isNone() {
         return type == Type.none;
@@ -31,10 +26,6 @@ struct Output {
 
     static Output imut(size_t reg) {
         return Output(reg, Type.imut);
-    }
-
-    static Output mut(size_t reg) {
-        return Output(reg, type.mut);
     }
 
     string toString() const @safe pure nothrow {
@@ -143,7 +134,7 @@ class Compiler {
             size_t count = nonlocals.length;
             nonlocals[ident.repr] = count + 1;
         }
-        Output tmp = Output.mut(allocReg);
+        Output tmp = Output.imut(allocReg);
         putStrSep(tmp, "<- int", nonlocals[ident.repr]);
         putStrSep(tmp, "<- get", Output.imut(1), tmp);
         return tmp;
@@ -195,90 +186,42 @@ class Compiler {
         case "+": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- add", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- add", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- add", lhs, rhs);
             return output;
         }
         case "-": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- sub", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- sub", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- sub", lhs, rhs);
             return output;
         }
         case "*": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- mul", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- mul", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- mul", lhs, rhs);
             return output;
         }
         case "/": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- div", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- div", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- div", lhs, rhs);
             return output;
         }
         case "%": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- mod", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- mod", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- mod", lhs, rhs);
             return output;
         }
         case "index": {
             Output lhs = emitNode(form.args[0]);
             Output rhs = emitNode(form.args[1]);
-            if (lhs.isMut) {
-                putStrSep(lhs, "<- get", lhs, rhs);
-                return lhs;
-            }
-            if (rhs.isMut) {
-                putStrSep(rhs, "<- get", lhs, rhs);
-                return rhs;
-            }
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- get", lhs, rhs);
             return output;
         }
@@ -291,18 +234,13 @@ class Compiler {
         }
         case "length": {
             Output arg = emitNode(form.args[0]);
-            if (arg.isMut) {
-                putStrSep(arg, "<- len", arg);
-                return arg;
-            } else {
-                Output reg = Output.mut(allocReg);
-                putStrSep(reg, "<- len", arg);
-                return reg;
-            }
+            Output reg = Output.imut(allocReg);
+            putStrSep(reg, "<- len", arg);
+            return reg;
         }
         case "array": {
-            Output reg = Output.mut(allocReg);
-            Output tmp = Output.mut(allocReg);
+            Output reg = Output.imut(allocReg);
+            Output tmp = Output.imut(allocReg);
             putStrSep(reg, "<- int", form.args.length);
             putStrSep(reg, "<- arr", reg);
             foreach (index, argvalue; form.args) {
@@ -328,15 +266,15 @@ class Compiler {
             foreach (arg; form.args[1..$]) {
                 args ~= emitNode(arg);
             }
-            Output tmpreg = Output.mut(allocReg);
+            Output tmpreg = Output.imut(allocReg);
             putStrSep(tmpreg, "<- int", 0);
             putStrSep(tmpreg, "<- get", args[0], tmpreg);
-            Output output = Output.mut(allocReg);
+            Output output = Output.imut(allocReg);
             putStrSep(output, "<- dcall", tmpreg, args.map!(to!string).joiner(" "));
             return output;
         }
         case "if": {
-            Output outreg = Output.mut(allocReg);
+            Output outreg = Output.imut(allocReg);
             string lfalse = gensym;
             string ltrue = gensym;
             string lend = gensym;
@@ -379,22 +317,12 @@ class Compiler {
         case "set": {
             if (Ident ident = cast(Ident) form.args[0]) {
                 if (ident.repr !in locals) {
-                    Output rhs = emitNode(form.args[1]);
-                    if (rhs.isMut) {
-                        locals[ident.repr] = rhs.reg;
-                        return Output.imut(rhs.reg);
-                    } else {
-                        Output outreg = Output.imut(allocReg);
-                        putStrSep(outreg, "<- reg", rhs);
-                        locals[ident.repr] = outreg.reg;
-                        return outreg;
-                    }
-                } else {
-                    Output outreg = Output.imut(locals[ident.repr]);
-                    Output rhs = emitNode(form.args[1]);
-                    putStrSep(outreg, "<- reg", rhs);
-                    return outreg;
+                    locals[ident.repr] = allocReg;
                 }
+                Output outreg = Output.imut(locals[ident.repr]);
+                Output rhs = emitNode(form.args[1]);
+                putStrSep(outreg, "<- reg", rhs);
+                return outreg;
             } else if (Form args = cast(Form) form.args[0]) {
                 switch (args.form) {
                 case "args":
@@ -417,8 +345,8 @@ class Compiler {
                             locals[varname.repr] = allocReg;
                         }
                         Output cloreg = Output.imut(locals[varname.repr]);
-                        Output indexreg = Output.mut(allocReg);
-                        Output valuereg = Output.mut(allocReg);
+                        Output indexreg = Output.imut(allocReg);
+                        Output valuereg = Output.imut(allocReg);
                         putStrSep(cloreg, "<- int", caps.length + 1);
                         putStrSep(cloreg, "<- arr", cloreg);
                         putStrSep(indexreg, "<- int", 0);
@@ -455,21 +383,21 @@ class Compiler {
     }
 
     Output emitValue(Value!string value) {
-        Output reg = Output.mut(allocReg);
+        Output reg = Output.imut(allocReg);
         putStrSep(reg, "<- str", ':' ~ value.value);
         return reg;
     }
 
     Output emitValue(Value!BigInt value) {
         BigInt n = value.value;
-        Output outreg = Output.mut(allocReg);
+        Output outreg = Output.imut(allocReg);
         if (n < 0) {
             if (n < 2^^24) {
                 putStrSep(outreg, "<- int", n);
             } else {
                 n = -n;
-                Output size = Output.mut(allocReg);
-                Output tmp = Output.mut(allocReg);
+                Output size = Output.imut(allocReg);
+                Output tmp = Output.imut(allocReg);
                 putStrSep(size, "<- int", 2 ^^ 24);
                 putStrSep(outreg, "<- int 0");
                 while (n != 0) {
@@ -484,8 +412,8 @@ class Compiler {
             if (n < 2^^24) {
                 putStrSep(outreg, "<- int", value.value);
             } else {
-                Output size = Output.mut(allocReg);
-                Output tmp = Output.mut(allocReg);
+                Output size = Output.imut(allocReg);
+                Output tmp = Output.imut(allocReg);
                 putStrSep(size, "<- int", 2 ^^ 24);
                 putStrSep(outreg, "<- int 0");
                 while (n != 0) {

@@ -2,29 +2,7 @@ module paka.vm;
 import std.string;
 
 extern(C) {
-    enum Opcode: uint
-    {
-        exit,
-        reg,
-        jump,
-        djump,
-        func,
-        call,
-        dcall,
-        addr,
-        ret,
-        putchar,
-        int_,
-        neg,
-        add,
-        sub,
-        mul,
-        div,
-        mod,
-        bb,
-        beq,
-        blt,
-    };
+    alias Opcode = uint;
 
     struct Buffer {
         Opcode* ops;
@@ -37,7 +15,7 @@ extern(C) {
 
 void run(Buffer buf) {
     int res = vm_run_arch_int(buf.nops, buf.ops);
-    assert(res);
+    assert(res == 0);
 }
 
 void run(const(char)* src) {

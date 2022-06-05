@@ -69,8 +69,10 @@ void stripNewlines(TokenArray tokens) {
 
 Node readPostCallExtend(TokenArray tokens, Node last) {
     Node[][] args = tokens.readCallArgs;
-    while (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
-        args[$ - 1] ~= new Form("fun", [new Form("args"), tokens.readBlock]);
+    if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
+        Node sym = genSym;
+        Node arg = new Form("do", new Form("set", new Form("args", sym), tokens.readBlock), sym);
+        args[$ - 1] ~= arg;
     }
     foreach (argList; args) {
         last = new Form("call", last ~ argList);
@@ -277,12 +279,13 @@ Node readPostExprImpl(TokenArray tokens) {
     Node last = void;
     if (tokens.first.isKeyword("lambda")) {
         tokens.nextIs(Token.Type.keyword, "lambda");
+        Node sym = genSym;
         if (tokens.first.isOpen("(")) {
-            last = new Form("fun", [
-                    new Form("args", tokens.readParens), tokens.readBlock
-                ]);
+            last = new Form("do", new Form("set", new Form("args", sym, tokens.readParens), tokens.readBlock), sym);
         } else if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
-            last = new Form("fun", new Form("args"), tokens.readBlock);
+            last = new Form("do", new Form("set", new Form("args", sym), tokens.readBlock), sym);
+        } else {
+            throw new Exception("error: expected `(` `{` or `:` after `lambda`");
         }
     } else if (tokens.first.isOpen("(")) {
         Node[] nodes = tokens.readParens;
@@ -422,7 +425,6 @@ Node readExprImpl(TokenArray tokens, size_t level) {
         opers ~= oper;
     }
     Node ret = subNodes[0];
-    Ident last;
     foreach (i, oper; opers) {
         ret = parseBinaryOp(oper)(ret, subNodes[i + 1]);
     }
@@ -443,14 +445,11 @@ Node readStmtImpl(TokenArray tokens) {
     }
     if (tokens.first.isKeyword("def")) {
         tokens.nextIs(Token.Type.keyword, "def");
-        Form call = cast(Form) tokens.readExprBase;
-        assert(call);
-        Node name = new Form("args", call.args[0 .. $ - 1]);
-        Form fun = cast(Form) call.args[$ - 1];
-        assert(fun);
-        Node dobody = fun.args[$ - 1];
-        // Node dobody = tokens.readBlock;
-        return new Form("set", name, dobody);
+        Node name = new Ident(tokens.first.value);
+        tokens.nextIs(Token.Type.ident);
+        Node[] args = tokens.readParens();
+        Node then = tokens.readBlock();
+        return new Form("set", new Form("args", name, args), then);
     }
     return tokens.readExprBase;
 }
