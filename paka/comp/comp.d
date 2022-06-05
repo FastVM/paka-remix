@@ -83,6 +83,7 @@ class Compiler {
         nonlocalsbuf.length -= 1;
         localsbuf.length -= 1;
         asmbufs.length -= 1;
+        nregsbuf.length -= 1;
     }
 
     void putStrNoIndent(Args...)(Args args) {
@@ -174,7 +175,7 @@ class Compiler {
             case "<=":
                 Output lhs = emitNode(form.args[0]);
                 Output rhs = emitNode(form.args[1]);
-                putStrSep("blt", rhs, lhs, iffalse, iftrue);
+                putStrSep("blt", rhs, lhs, iftrue, iffalse);
                 return;
             case ">=":
                 Output lhs = emitNode(form.args[0]);
@@ -312,23 +313,16 @@ class Compiler {
             return reg;
         }
         case "call": {
-            Output output = Output.none;
             Output[] args;
             if (Ident id = cast(Ident) form.args[0]) {
                 if (id.repr == "putchar") {
                     foreach (arg; form.args[1..$]) {
                         Output val = emitNode(arg);
-                        if (val.isMut && output.isNone) {
-                            output = val;
-                        }
                         args ~= val;
                     }
                     putStrSep("putchar", args.map!(to!string).joiner(" "));
                     return Output.none;
                 }
-            }
-            if (output.isNone) {
-                output = Output.mut(allocReg);
             }
             args ~= emitNode(form.args[0]);
             foreach (arg; form.args[1..$]) {
@@ -337,6 +331,7 @@ class Compiler {
             Output tmpreg = Output.mut(allocReg);
             putStrSep(tmpreg, "<- int", 0);
             putStrSep(tmpreg, "<- get", args[0], tmpreg);
+            Output output = Output.mut(allocReg);
             putStrSep(output, "<- dcall", tmpreg, args.map!(to!string).joiner(" "));
             return output;
         }
@@ -430,16 +425,11 @@ class Compiler {
                         putStrSep(valuereg, "<- addr", name);
                         putStrSep("set", cloreg, indexreg, valuereg);
                         foreach (index, value; caps) {
-                            if (index == varname.repr) {
-                                putStrSep(indexreg, "<- int", value);
-                                putStrSep("set", cloreg, indexreg, cloreg);
-                            } else {
-                                Output capreg = emitIdent(new Ident(index));
-                                putStrSep(indexreg, "<- int", value);
-                                putStrSep("set", cloreg, indexreg, capreg);
-                            }
+                            Output capreg = emitIdent(new Ident(index));
+                            putStrSep(indexreg, "<- int", value);
+                            putStrSep("set", cloreg, indexreg, capreg);
                         }
-                        return Output.none;
+                        return cloreg;
                     } else {
                         assert(false, "bad assign to function");
                     }
