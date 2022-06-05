@@ -139,7 +139,8 @@ class Compiler {
             return Output.imut(locals[ident.repr]);
         }
         if (ident.repr !in nonlocals) {
-            nonlocals[ident.repr] = nonlocals.length + 1;
+            size_t count = nonlocals.length;
+            nonlocals[ident.repr] = count + 1;
         }
         Output tmp = Output.mut(allocReg);
         putStrSep(tmp, "<- int", nonlocals[ident.repr]);
@@ -170,15 +171,15 @@ class Compiler {
                 Output rhs = emitNode(form.args[1]);
                 putStrSep("blt", rhs, lhs, iffalse, iftrue);
                 return;
+            case "<=":
+                Output lhs = emitNode(form.args[0]);
+                Output rhs = emitNode(form.args[1]);
+                putStrSep("blt", rhs, lhs, iffalse, iftrue);
+                return;
             case ">=":
                 Output lhs = emitNode(form.args[0]);
                 Output rhs = emitNode(form.args[1]);
                 putStrSep("blt", lhs, rhs, iftrue, iffalse);
-                return;
-            case "<=":
-                Output lhs = emitNode(form.args[0]);
-                Output rhs = emitNode(form.args[1]);
-                putStrSep("blt", rhs, lhs, iftrue, iffalse);
                 return;
             default:
                 break;
@@ -339,6 +340,30 @@ class Compiler {
             putStrSep(output, "<- dcall", tmpreg, args.map!(to!string).joiner(" "));
             return output;
         }
+        case "if": {
+            Output outreg = Output.mut(allocReg);
+            string lfalse = gensym;
+            string ltrue = gensym;
+            string lend = gensym;
+            emitBranch(form.args[0], lfalse, ltrue);
+            putStrNoIndent("@", ltrue);
+            Output treg = emitNode(form.args[1]);
+            if (!treg.isNone) {
+                putStrSep(outreg, "<- reg", treg);
+            } else {
+                putStrSep(outreg, "<- int", 0);
+            }
+            putStrSep("jump", lend);
+            putStrNoIndent("@", lfalse);
+            Output freg = emitNode(form.args[2]);
+            if (!freg.isNone) {
+                putStrSep(outreg, "<- reg", freg);
+            } else {
+                putStrSep(outreg, "<- int", 0);
+            }
+            putStrNoIndent("@", lend);
+            return outreg;
+        }
         case "while": {
             string linit = gensym;
             string lcond = gensym;
@@ -349,6 +374,11 @@ class Compiler {
             putStrNoIndent("@", lcond);
             emitBranch(form.args[0], lend, linit);
             putStrNoIndent("@", lend);
+            return Output.none;
+        }
+        case "return": {
+            Output reg = emitNode(form.args[0]);
+            putStrSep("ret", reg);
             return Output.none;
         }
         case "set": {
@@ -384,20 +414,26 @@ class Compiler {
                         if (varname.repr !in locals) {
                             locals[varname.repr] = allocReg;
                         }
-                        Output arreg = Output.imut(locals[varname.repr]);
+                        Output cloreg = Output.imut(locals[varname.repr]);
                         Output indexreg = Output.mut(allocReg);
                         Output valuereg = Output.mut(allocReg);
-                        putStrSep(arreg, "<- int", caps.length + 1);
-                        putStrSep(arreg, "<- arr", arreg);
+                        putStrSep(cloreg, "<- int", caps.length + 1);
+                        putStrSep(cloreg, "<- arr", cloreg);
                         putStrSep(indexreg, "<- int", 0);
                         putStrSep(valuereg, "<- addr", name);
-                        putStrSep("set", arreg, indexreg, valuereg);
+                        putStrSep("set", cloreg, indexreg, valuereg);
                         foreach (index, value; caps) {
-                            Output capreg = emitIdent(new Ident(index));
-                            putStrSep(indexreg, "<- int", value);
-                            putStrSep("set", arreg, indexreg, capreg);
+                            writeln(index, ": ", value);
+                            if (index == varname.repr) {
+                                putStrSep(indexreg, "<- int", value);
+                                putStrSep("set", cloreg, indexreg, cloreg);
+                            } else {
+                                Output capreg = emitIdent(new Ident(index));
+                                putStrSep(indexreg, "<- int", value);
+                                putStrSep("set", cloreg, indexreg, capreg);
+                            }
                         }
-                        return arreg;
+                        return Output.none;
                     } else {
                         assert(false, "bad assign to function");
                     }
