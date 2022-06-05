@@ -385,8 +385,15 @@ class Compiler {
             if (Ident ident = cast(Ident) form.args[0]) {
                 if (ident.repr !in locals) {
                     Output rhs = emitNode(form.args[1]);
-                    locals[ident.repr] = rhs.reg;
-                    return Output.imut(rhs.reg);
+                    if (rhs.isMut) {
+                        locals[ident.repr] = rhs.reg;
+                        return Output.imut(rhs.reg);
+                    } else {
+                        Output outreg = Output.imut(allocReg);
+                        putStrSep(outreg, "<- reg", rhs);
+                        locals[ident.repr] = outreg.reg;
+                        return outreg;
+                    }
                 } else {
                     Output outreg = Output.imut(locals[ident.repr]);
                     Output rhs = emitNode(form.args[1]);
@@ -423,7 +430,6 @@ class Compiler {
                         putStrSep(valuereg, "<- addr", name);
                         putStrSep("set", cloreg, indexreg, valuereg);
                         foreach (index, value; caps) {
-                            writeln(index, ": ", value);
                             if (index == varname.repr) {
                                 putStrSep(indexreg, "<- int", value);
                                 putStrSep("set", cloreg, indexreg, cloreg);

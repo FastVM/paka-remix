@@ -36,7 +36,8 @@ extern(C) {
 }
 
 void run(Buffer buf) {
-    assert(vm_run_arch_int(buf.nops, buf.ops) == 0);
+    int res = vm_run_arch_int(buf.nops, buf.ops);
+    assert(res);
 }
 
 void run(const(char)* src) {
