@@ -432,7 +432,11 @@ class Compiler {
 string compileProgram(Node node) {
     Compiler compiler = new Compiler();
     compiler.emitTopLevel(node);
-    compiler.buf ~= import("boot.vasm");
+    compiler.pushBuf;
+    compiler.putStrNoIndent("@__entry");
+    compiler.putStrSep("r0 <- call toplevel");
+    compiler.putStrSep("exit");
+    compiler.popBuf;
     std.file.write("out.vasm", compiler.buf);
     return compiler.buf;
 }
