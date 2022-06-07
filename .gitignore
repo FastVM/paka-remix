@@ -4,3 +4,4 @@ minivm-paka
 .dub
 out.*
 the_end_times
+.vscode

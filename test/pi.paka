@@ -24,7 +24,7 @@ def pi(digits) {
             u = u + n
             if d > u {
                 putchar(t % 10 + 48)
-                if (i == 0) {
+                if i == 0 {
                     putchar(46)
                 }
                 i = i + 1
