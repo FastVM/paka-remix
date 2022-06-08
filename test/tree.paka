@@ -1,0 +1,73 @@
+
+def pow2(n) {
+    if n == 0 {
+        return 1
+    } else {
+        return pow2(n-1) * 2
+    }
+}
+
+def putn(n) {
+    if n >= 10 {
+        putn(n / 10)
+    }
+    putchar(n % 10 + 48)
+}
+
+def print(n) {
+    if n < 0 {
+        n = 0 - n
+        putchar(45)
+    }
+    putn(n)
+    putchar(10)
+}
+
+def bottom_up_tree(item, depth) {
+    if depth > 0 {
+        i = item + item
+        next_depth = depth - 1
+        left = bottom_up_tree(i-1, next_depth)
+        right = bottom_up_tree(i, next_depth)
+        return [item, left, right]
+    } else {
+        return [item]
+    }
+}
+
+def item_check(tree) {
+    if #tree == 3 {
+        return tree.0 + (item_check(tree.1) - item_check(tree.2))
+    } else {
+        return tree.0
+    }
+}
+
+def main(n) {
+    mindepth = 4
+    maxdepth = mindepth + 2
+    if maxdepth < n {
+        maxdepth = n
+    }
+    
+    print(item_check(bottom_up_tree(0, maxdepth + 1)))
+
+    long_lived_tree = bottom_up_tree(0, maxdepth)
+
+    depth = mindepth
+    while depth <= maxdepth {
+        iterations = pow2(maxdepth - depth + mindepth)
+        check = 0
+        index = 0
+        while index < iterations {
+            check = check + item_check(bottom_up_tree(1, depth)) + item_check(bottom_up_tree(0-1, depth))
+            index = index + 1
+        }
+        print(check)
+        depth = depth + 2
+    }
+    
+    print(item_check(long_lived_tree))
+}
+
+main(16)

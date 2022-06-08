@@ -14,6 +14,7 @@
         "gc.h": "c",
         "value.h": "c",
         "chrono": "c",
-        "lib.h": "c"
+        "lib.h": "c",
+        "limits": "c"
     }
 }

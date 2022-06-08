@@ -48,6 +48,13 @@ class Compiler
     size_t[] nregsbuf;
     size_t[string][] localsbuf;
     string[] asmbufs;
+    string[] curfuncsbuf;
+    string[string] funcs;
+
+    ref string curfunc()
+    {
+        return curfuncsbuf[$-1];
+    }
 
     ref size_t[string] nonlocals()
     {
@@ -79,6 +86,7 @@ class Compiler
         nregsbuf ~= 2;
         nonlocalsbuf.length += 1;
         localsbuf.length += 1;
+        curfuncsbuf.length += 1;
         asmbufs.length += 1;
     }
 
@@ -89,12 +97,18 @@ class Compiler
         localsbuf.length -= 1;
         asmbufs.length -= 1;
         nregsbuf.length -= 1;
+        curfuncsbuf.length -= 1;
     }
 
     void putStrNoIndent(Args...)(Args args)
     {
         static foreach (arg; args)
         {
+            static if (is(typeof(arg) == Output)) {
+                if (arg.reg == 0) {
+                    throw new Exception("bad: r0");
+                }
+            }
             asmbufs[$ - 1] ~= arg.to!string;
         }
         asmbufs[$ - 1] ~= '\n';
@@ -110,6 +124,11 @@ class Compiler
         asmbufs[$ - 1] ~= "    ";
         static foreach (index, arg; args)
         {
+            static if (is(typeof(arg) == Output)) {
+                if (arg.reg == 0) {
+                    throw new Exception("bad: r0");
+                }
+            }
             static if (index != 0)
             {
                 asmbufs[$ - 1] ~= ' ';
@@ -123,7 +142,13 @@ class Compiler
     {
         pushBuf;
         putStrNoIndent("func toplevel");
-        putStrSep("ret", emitNode(node));
+        Output res = emitNode(node);
+        if (res.isNone) {
+            putStrSep("r0 <- int 0");
+            putStrSep("ret r0");
+        } else {
+            putStrSep("ret", res);
+        }
         putStrNoIndent("end");
         popBuf;
     }
@@ -200,6 +225,9 @@ class Compiler
         {
             size_t count = nonlocals.length;
             nonlocals[ident.repr] = count + 1;
+        }
+        if (output.isNone) {
+            output = Output.imut(allocReg);
         }
         putStrSep(output, "<- int", nonlocals[ident.repr]);
         putStrSep(output, "<- get", Output.imut(1), output);
@@ -391,6 +419,19 @@ class Compiler
                         putStrSep("putchar", args.map!(to!string).joiner(" "));
                         return Output.none;
                     }
+                    else if (id.repr == curfunc)
+                    {
+                        foreach (arg; form.args[1 .. $])
+                        {
+                            args ~= emitNode(arg);
+                        }
+                        if (output.isNone)
+                        {
+                            output = Output.imut(allocReg);
+                        }
+                        putStrSep(output, "<- call", funcs[curfunc], "r1", args.map!(to!string).joiner(" "));
+                        return output;
+                    }
                 }
                 args ~= emitNode(form.args[0]);
                 foreach (arg; form.args[1 .. $])
@@ -481,6 +522,7 @@ class Compiler
                         if (Ident varname = cast(Ident) args.args[0])
                         {
                             pushBuf;
+                            curfunc = varname.repr;
                             foreach (arg; args.args[1 .. $])
                             {
                                 if (Ident argname = cast(Ident) arg)
@@ -490,8 +532,14 @@ class Compiler
                             }
                             string name = gensym;
                             putStrNoIndent("func ", name);
+                            funcs[varname.repr] = name;
                             Output rhs = emitNode(form.args[1]);
-                            putStrSep("ret", rhs);
+                            if (rhs.isNone) {
+                                putStrSep("r0 <- int 0");
+                                putStrSep("ret r0");
+                            } else {
+                                putStrSep("ret", rhs);
+                            }
                             putStrNoIndent("end");
                             size_t[string] caps = nonlocals;
                             popBuf;
@@ -537,6 +585,10 @@ class Compiler
 
     Output emitValue(Value!bool value, Output output)
     {
+        if (output.isNone)
+        {
+            output = Output.imut(allocReg);
+        }
         if (value.value)
         {
             return emitValue(new Value!BigInt(BigInt(1)), output);
@@ -564,51 +616,7 @@ class Compiler
         {
             output = Output.imut(allocReg);
         }
-        if (n < 0)
-        {
-            if (n < 2 ^^ 24)
-            {
-                putStrSep(output, "<- int", n);
-            }
-            else
-            {
-                n = -n;
-                Output size = Output.imut(allocReg);
-                Output tmp = Output.imut(allocReg);
-                putStrSep(size, "<- int", 2 ^^ 24);
-                putStrSep(output, "<- int 0");
-                while (n != 0)
-                {
-                    BigInt part = n % 2 ^^ 24;
-                    putStrSep(tmp, "<- int", part);
-                    putStrSep(output, "<- mul", output, size);
-                    putStrSep(output, "<- sub", output, tmp);
-                    n /= 2 ^^ 24;
-                }
-            }
-        }
-        else
-        {
-            if (n < 2 ^^ 24)
-            {
-                putStrSep(output, "<- int", value.value);
-            }
-            else
-            {
-                Output size = Output.imut(allocReg);
-                Output tmp = Output.imut(allocReg);
-                putStrSep(size, "<- int", 2 ^^ 24);
-                putStrSep(output, "<- int 0");
-                while (n != 0)
-                {
-                    BigInt part = n % 2 ^^ 24;
-                    putStrSep(tmp, "<- int", part);
-                    putStrSep(output, "<- mul", output, size);
-                    putStrSep(output, "<- add", output, tmp);
-                    n /= 2 ^^ 24;
-                }
-            }
-        }
+        putStrSep(output, "<- int", n);
         return output;
     }
 }

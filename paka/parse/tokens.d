@@ -198,7 +198,7 @@ redo:
         bool isNumber = true;
         char[] ret;
         while (peek.isAlphaNum || peek == '_' || peek == '$' || peek == '@'
-            || peek == '?' || (isNumber && peek == '.')) {
+            || peek == '?') {
             isNumber = isNumber && (peek.isDigit || peek == '.');
             ret ~= read;
         }
