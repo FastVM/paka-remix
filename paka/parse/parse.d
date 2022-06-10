@@ -71,7 +71,7 @@ Node readPostCallExtend(TokenArray tokens, Node last) {
     Node[][] args = tokens.readCallArgs;
     if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
         Node sym = genSym;
-        Node arg = new Form("do", new Form("set", new Form("args", sym), tokens.readBlock), sym);
+        Node arg = new Form("lambga", new Form("args", sym), tokens.readBlock);
         args[$ - 1] ~= arg;
     }
     foreach (argList; args) {
@@ -279,11 +279,10 @@ Node readPostExprImpl(TokenArray tokens) {
     Node last = void;
     if (tokens.first.isKeyword("lambda")) {
         tokens.nextIs(Token.Type.keyword, "lambda");
-        Node sym = genSym;
         if (tokens.first.isOpen("(")) {
-            last = new Form("do", new Form("set", new Form("args", sym, tokens.readParens), tokens.readBlock), sym);
+            last = new Form("lambda", new Form("args", tokens.readParens), tokens.readBlock);
         } else if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
-            last = new Form("do", new Form("set", new Form("args", sym), tokens.readBlock), sym);
+            last = new Form("lambda", new Form("args"), tokens.readBlock);
         } else {
             throw new Exception("error: expected `(` `{` or `:` after `lambda`");
         }
@@ -314,6 +313,17 @@ Node readPostExprImpl(TokenArray tokens) {
     } else if (tokens.first.isKeyword("table")) {
         tokens.nextIs(Token.Type.keyword, "table");
         last = tokens.readTable;
+    } else if (tokens.first.isKeyword("require")) {
+        tokens.nextIs(Token.Type.keyword, "require");
+        last = new Form("require", new Value!string(tokens.first.value));
+        tokens.nextIs(Token.Type.string);
+    } else if (tokens.first.isKeyword("import")) {
+        tokens.nextIs(Token.Type.keyword, "import");
+        Node sym = genSym;
+        tokens.nextIs(Token.Type.keyword, "import");
+        last = new Form("lambda", new Form("args", sym), new Form("require", new Value!string(tokens.first.value)));
+        tokens.nextIs(Token.Type.string);
+        last = new Form("call", last);
     } else if (tokens.first.isKeyword("if")) {
         tokens.nextIs(Token.Type.keyword, "if");
         last = tokens.readIf;

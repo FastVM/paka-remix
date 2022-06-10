@@ -1,0 +1,40 @@
+def nprintf(fmt, i) {
+    while i < #fmt {
+        chr = fmt.(i)
+        i = i + 1
+        if chr == "%".0 {
+            chr = fmt.(i)
+            i = i + 1
+            if chr == "%".0 {
+                putchar("%".0)
+            } else: if chr == "s".0 {
+                return lambda(arg) {
+                    n = 0
+                    while n < #arg {
+                        putchar(arg.[n])
+                        n = n + 1
+                    }
+                    return nprintf(fmt, i)
+                }
+            } else: if chr == "i".0 {
+                return lambda(arg) {
+                    def putn(n) {
+                        if n >= 10 {
+                            putn(n / 10)
+                        }
+                        putchar(n % 10 + "0".0)
+                    }
+
+                    putn(arg)
+                    return nprintf(fmt, i)                    
+                }
+            }
+        } else {
+            putchar(chr)
+        }
+    }
+}
+
+def printf(fmt) {
+    return nprintf(fmt, 0)
+}

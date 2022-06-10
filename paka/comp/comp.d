@@ -2,10 +2,15 @@ module paka.comp.comp;
 
 import std.stdio;
 import std.file;
+import std.path;
+import std.array;
 import std.algorithm;
 import std.conv;
 import std.bigint;
+import paka.srcloc;
+import paka.parse.parse;
 import paka.parse.ast;
+import paka.comp.std;
 
 struct Output
 {
@@ -39,7 +44,7 @@ struct Output
     }
 }
 
-class Compiler
+struct Compiler
 {
     size_t nsyms = 0;
     string buf;
@@ -53,7 +58,7 @@ class Compiler
 
     ref string curfunc()
     {
-        return curfuncsbuf[$-1];
+        return curfuncsbuf[$ - 1];
     }
 
     ref size_t[string] nonlocals()
@@ -104,8 +109,10 @@ class Compiler
     {
         static foreach (arg; args)
         {
-            static if (is(typeof(arg) == Output)) {
-                if (arg.reg == 0) {
+            static if (is(typeof(arg) == Output))
+            {
+                if (arg.reg == 0)
+                {
                     throw new Exception("bad: r0");
                 }
             }
@@ -124,8 +131,10 @@ class Compiler
         asmbufs[$ - 1] ~= "    ";
         static foreach (index, arg; args)
         {
-            static if (is(typeof(arg) == Output)) {
-                if (arg.reg == 0) {
+            static if (is(typeof(arg) == Output))
+            {
+                if (arg.reg == 0)
+                {
                     throw new Exception("bad: r0");
                 }
             }
@@ -143,13 +152,20 @@ class Compiler
         pushBuf;
         putStrNoIndent("func toplevel");
         Output res = emitNode(node);
-        if (res.isNone) {
+        if (res.isNone)
+        {
             putStrSep("r0 <- int 0");
             putStrSep("ret r0");
-        } else {
+        }
+        else
+        {
             putStrSep("ret", res);
         }
         putStrNoIndent("end");
+        if (nonlocals.length != 0)
+        {
+            throw new Exception("undefined: " ~ nonlocals.keys[0]);
+        }
         popBuf;
     }
 
@@ -226,7 +242,8 @@ class Compiler
             size_t count = nonlocals.length;
             nonlocals[ident.repr] = count + 1;
         }
-        if (output.isNone) {
+        if (output.isNone)
+        {
             output = Output.imut(allocReg);
         }
         putStrSep(output, "<- int", nonlocals[ident.repr]);
@@ -238,9 +255,12 @@ class Compiler
     {
         if (Value!BigInt val = cast(Value!BigInt) cond)
         {
-            if (val.value == 0) {
+            if (val.value == 0)
+            {
                 putStrSep("jump", iffalse);
-            } else {
+            }
+            else
+            {
                 putStrSep("jump", iftrue);
             }
             return;
@@ -404,6 +424,37 @@ class Compiler
                 }
                 return output;
             }
+        case "require":
+            if (Value!string str = cast(Value!string) form.args[0])
+            {
+                Node node = void;
+                string olddir = getcwd;
+                string path = olddir;
+                if (str.value.startsWith("std:"))
+                {
+                    node = SrcLoc(str.value, str.value[4 .. $].readStd).parseUncached;
+                }
+                else
+                {
+                    path = str.value.dirName;
+                    node = SrcLoc(str.value, str.value.readText).parseUncached;
+                }
+                if (!output.isNone)
+                {
+                    throw new Exception("cannot assign to result of require");
+                }
+                scope (exit)
+                {
+                    olddir.chdir;
+                }
+                path.chdir;
+                emitNode(node);
+                return output;
+            }
+            else
+            {
+                throw new Exception("cannot import non string literal");
+            }
         case "call":
             {
                 Output[] args;
@@ -419,6 +470,20 @@ class Compiler
                         putStrSep("putchar", args.map!(to!string).joiner(" "));
                         return Output.none;
                     }
+                    else if (id.repr == "type")
+                    {
+                        foreach (arg; form.args[1 .. $])
+                        {
+                            Output val = emitNode(arg);
+                            args ~= val;
+                        }
+                        if (output.isNone)
+                        {
+                            output = Output.imut(allocReg);
+                        }
+                        putStrSep(output, "<- type", args.map!(to!string).joiner(" "));
+                        return output;
+                    }
                     else if (id.repr == curfunc)
                     {
                         foreach (arg; form.args[1 .. $])
@@ -429,7 +494,8 @@ class Compiler
                         {
                             output = Output.imut(allocReg);
                         }
-                        putStrSep(output, "<- call", funcs[curfunc], "r1", args.map!(to!string).joiner(" "));
+                        putStrSep(output, "<- call", funcs[curfunc], "r1", args.map!(to!string)
+                                .joiner(" "));
                         return output;
                     }
                 }
@@ -501,6 +567,54 @@ class Compiler
                 putStrSep("ret", reg);
                 return Output.none;
             }
+        case "lambda":
+            {
+                if (Form args = cast(Form) form.args[0])
+                {
+                    pushBuf;
+                    foreach (arg; args.args)
+                    {
+                        if (Ident argname = cast(Ident) arg)
+                        {
+                            locals[argname.repr] = allocReg;
+                        }
+                    }
+                    string name = gensym;
+                    putStrNoIndent("func ", name);
+                    Output rhs = emitNode(form.args[1]);
+                    if (rhs.isNone)
+                    {
+                        putStrSep("r0 <- int 0");
+                        putStrSep("ret r0");
+                    }
+                    else
+                    {
+                        putStrSep("ret", rhs);
+                    }
+                    putStrNoIndent("end");
+                    size_t[string] caps = nonlocals;
+                    popBuf;
+                    Output cloreg = output.isNone ? Output.imut(allocReg) : output;
+                    Output indexreg = Output.imut(allocReg);
+                    Output valuereg = Output.imut(allocReg);
+                    putStrSep(cloreg, "<- int", caps.length + 1);
+                    putStrSep(cloreg, "<- arr", cloreg);
+                    putStrSep(indexreg, "<- int", 0);
+                    putStrSep(valuereg, "<- addr", name);
+                    putStrSep("set", cloreg, indexreg, valuereg);
+                    foreach (index, value; caps)
+                    {
+                        Output capreg = emitNode(cast(Node) new Ident(index));
+                        putStrSep(indexreg, "<- int", value);
+                        putStrSep("set", cloreg, indexreg, capreg);
+                    }
+                    return cloreg;
+                }
+                else
+                {
+                    throw new Exception("cannot have lambda with out arguments parameter");
+                }
+            }
         case "set":
             {
                 if (Ident ident = cast(Ident) form.args[0])
@@ -534,10 +648,13 @@ class Compiler
                             putStrNoIndent("func ", name);
                             funcs[varname.repr] = name;
                             Output rhs = emitNode(form.args[1]);
-                            if (rhs.isNone) {
+                            if (rhs.isNone)
+                            {
                                 putStrSep("r0 <- int 0");
                                 putStrSep("ret r0");
-                            } else {
+                            }
+                            else
+                            {
                                 putStrSep("ret", rhs);
                             }
                             putStrNoIndent("end");
@@ -605,8 +722,8 @@ class Compiler
         {
             output = Output.imut(allocReg);
         }
-        putStrSep(output, "<- str", ':' ~ value.value);
-        return output;
+        putStrSep(output, "<- str", ':' ~ value.value.replace("\n", "\\n"));
+        return output; 
     }
 
     Output emitValue(Value!BigInt value, Output output)
@@ -623,7 +740,7 @@ class Compiler
 
 string compileProgram(Node node)
 {
-    Compiler compiler = new Compiler();
+    Compiler compiler = Compiler();
     compiler.emitTopLevel(node);
     compiler.pushBuf;
     compiler.putStrNoIndent("@__entry");

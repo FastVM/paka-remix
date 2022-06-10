@@ -21,7 +21,7 @@ string[] nops = [".", "not", ",", "->", "\\", "!", "#", ":"];
 string[] keywords = [
     "if", "else", "return", "def", "lambda",
     "true", "false", "table",
-    "while",
+    "while", "import", "require"
 ];
 
 /// gets the operators by length not precidence
@@ -216,11 +216,11 @@ redo:
     if ("}])".canFind(peek)) {
         return consToken(Token.Type.close, [read]);
     }
-    if (peek == '"') {
-        char got = read;
+    if (peek == '"' || peek == '\'') {
+        char first = read;
         char[] ret;
-        while (peek != '"') {
-            got = read;
+        while (peek != first) {
+            char got = read;
             if (got == '\\') {
                 switch (got = read) {
                 case 'n':

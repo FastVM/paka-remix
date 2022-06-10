@@ -1,0 +1,11 @@
+
+def main() {
+    x = 0
+    while x < 10 {
+        putchar(48 + x)
+        putchar(10)
+        x = x + 1
+    }
+}
+
+main()
