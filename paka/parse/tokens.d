@@ -29,8 +29,6 @@ string[] levels() {
     return join(prec ~ nops).sort!"a.length > b.length".array;
 }
 
-version = nanorc;
-
 Token.Type[] noFollow = [Token.Type.ident, Token.Type.string, Token.Type.format];
 
 /// simple token
