@@ -71,7 +71,7 @@ Node readPostCallExtend(TokenArray tokens, Node last) {
     Node[][] args = tokens.readCallArgs;
     if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
         Node sym = genSym;
-        Node arg = new Form("lambga", new Form("args", sym), tokens.readBlock);
+        Node arg = new Form("lambda", new Form("args", sym), tokens.readBlock);
         args[$ - 1] ~= arg;
     }
     foreach (argList; args) {
@@ -457,9 +457,12 @@ Node readStmtImpl(TokenArray tokens) {
         tokens.nextIs(Token.Type.keyword, "def");
         Node name = new Ident(tokens.first.value);
         tokens.nextIs(Token.Type.ident);
-        Node[] args = tokens.readParens();
+        Node[][] args = tokens.readCallArgs();
         Node then = tokens.readBlock();
-        return new Form("set", new Form("args", name, args), then);
+        foreach_reverse (part; args[1..$]) {
+            then = new Form("lambda", new Form("args", part), then);
+        }
+        return new Form("set", new Form("args", name, args[0]), then);
     }
     return tokens.readExprBase;
 }

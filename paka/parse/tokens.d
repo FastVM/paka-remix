@@ -261,7 +261,13 @@ redo:
             }
         }
         consume;
-        return consToken(Token.Type.string, ret);
+        if (first != '\'') {
+            return consToken(Token.Type.string, ret);
+        } else if (ret.length == 1) {
+            return consToken(Token.Type.ident, to!string(cast(ubyte) ret[0]));
+        } else {
+            throw new Exception("parse error: too many chars in string");
+        }
     }
     if (peek == '\0') {
         return consToken(Token.Type.none, "");

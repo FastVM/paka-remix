@@ -1,0 +1,6 @@
+add(x; y) = x + y
+
+inc = add(1)
+
+putchar(inc('x'))
+putchar('\n')

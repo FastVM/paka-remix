@@ -13,5 +13,5 @@ def fib(n) {
     }
 }
 
-putn(fib(35))
+putn(fib(40))
 putchar(10)

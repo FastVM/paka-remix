@@ -23,7 +23,15 @@ BinaryOp parseBinaryOp(string[] ops) {
     string opName = ops[0];
     switch (opName) {
     case "=":
-        return (Node lhs, Node rhs) { return new Form("set", lhs, rhs); };
+        Node exec(Node lhs, Node rhs) {
+            if (Form flhs = cast(Form) lhs) {
+                if (flhs.form == "args" || flhs.form == "call") {
+                    return exec(flhs.args[0], new Form("lambda", new Form("args", flhs.args[1..$]), rhs));
+                }
+            }
+            return cast(Node) new Form("set", lhs, rhs);
+        }
+        return &exec;
     case "+=":
     case "~=":
     case "-=":
