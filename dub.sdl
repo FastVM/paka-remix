@@ -4,9 +4,5 @@ authors "Shaw Summa"
 copyright "Copyright © 2022, Shaw Summa"
 license "MIT"
 lflags "minivm/bin/libminivm.a"
-preBuildCommands "make -Bj -C minivm OPT='-Ofast' bin/libminivm.a"
 sourcePaths "paka"
 stringImportPaths "paka"
-buildType "pgo" {
-    preBuildCommands "make -C minivm OPT='-Ofast' -Bj gcc-pgo-build"
-}

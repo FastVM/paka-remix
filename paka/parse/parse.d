@@ -153,19 +153,6 @@ Node readWhileImpl(TokenArray tokens) {
     return new Form("while", cond, block);
 }
 
-alias readTable = Spanning!readTableImpl;
-Ident thisSym = null;
-
-Node readTableImpl(TokenArray tokens) {
-    Ident prev = thisSym;
-    scope (exit)
-        thisSym = prev;
-    thisSym = genSym;
-    Node set = new Form("set", thisSym, new Form("table"));
-    Node build = tokens.readBlock;
-    return new Form("do", set, build, thisSym);
-}
-
 void skip1(ref string str, ref Span span) {
     if (str[0] == '\n') {
         span.first.line += 1;
@@ -310,9 +297,6 @@ Node readPostExprImpl(TokenArray tokens) {
         } else {
             last = new Form("cache", tokens.readPostExpr, checks);
         }
-    } else if (tokens.first.isKeyword("table")) {
-        tokens.nextIs(Token.Type.keyword, "table");
-        last = tokens.readTable;
     } else if (tokens.first.isKeyword("require")) {
         tokens.nextIs(Token.Type.keyword, "require");
         last = new Form("require", new Value!string(tokens.first.value));
@@ -343,21 +327,7 @@ Node readPostExprImpl(TokenArray tokens) {
         } else if (tokens.first.value[0].isDigit) {
             last = new Value!BigInt(tokens.first.value.to!BigInt);
             tokens.nextIs(Token.Type.ident);
-        } else if (tokens.first.value[0] == '@') {
-            if (thisSym is null) {
-                throw new Exception("cannot use " ~ tokens.first.value ~ " outside of table{...}");
-            }
-            Node index = new Value!string(tokens.first.value[1 .. $]);
-            tokens.nextIs(Token.Type.ident);
-            last = new Form("index", thisSym, index);
-        } // else
-        // {
-        //     Node var = new Ident("this");
-        //     Node index = new Value(tokens.first.value);
-        //     tokens.nextIs(Token.Type.ident);
-        //     last = new Form("cache", new Form("index", var, index));
-        // }
-    else {
+        } else {
             last = new Ident(tokens.first.value);
             tokens.nextIs(Token.Type.ident);
         }

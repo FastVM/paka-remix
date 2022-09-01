@@ -43,12 +43,17 @@ def item_check(tree) {
     }
 }
 
+def max(a, b) {
+    if a > b {
+        return a
+    } else {
+        return b
+    }
+}
+
 def main(n) {
     mindepth = 4
-    maxdepth = mindepth + 2
-    if maxdepth < n {
-        maxdepth = n
-    }
+    maxdepth = max(mindepth + 2, n)
     
     print(item_check(bottom_up_tree(0, maxdepth + 1)))
 
