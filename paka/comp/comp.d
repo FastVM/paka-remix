@@ -49,6 +49,9 @@ struct Compiler
     size_t nsyms = 0;
     string buf;
 
+    Function[string] externs;
+    Function[] used;
+
     size_t[string][] nonlocalsbuf;
     size_t[] nregsbuf;
     size_t[string][] localsbuf;
@@ -498,6 +501,20 @@ struct Compiler
                                 .joiner(" "));
                         return output;
                     }
+                    else if (Function* func = id.repr in externs)
+                    {
+                        foreach (arg; form.args[1 .. $])
+                        {
+                            args ~= emitNode(arg);
+                        }
+                        if (output.isNone)
+                        {
+                            output = Output.imut(allocReg);
+                        }
+                        putStrSep(output, "<- xcall", used.length.to!string, args.map!(to!string).joiner(" "));
+                        used ~= *func;
+                        return output;
+                    }
                 }
                 args ~= emitNode(form.args[0]);
                 foreach (arg; form.args[1 .. $])
@@ -738,9 +755,17 @@ struct Compiler
     }
 }
 
-string compileProgram(Node node)
+import paka.vm: Function;
+
+struct Result {
+    string src;
+    Function[] funcs;
+}
+
+Result compileProgram(Node node, Function[string] externs)
 {
     Compiler compiler = Compiler();
+    compiler.externs = externs;
     compiler.emitTopLevel(node);
     compiler.pushBuf;
     compiler.putStrNoIndent("@__entry");
@@ -748,5 +773,5 @@ string compileProgram(Node node)
     compiler.putStrSep("exit");
     compiler.popBuf;
     std.file.write("out.vasm", compiler.buf);
-    return compiler.buf;
+    return Result(compiler.buf, compiler.used);
 }

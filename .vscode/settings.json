@@ -1,5 +1,8 @@
 {
     "files.associations": {
+        "*.dasc": "c",
+        "*.inc": "asm6502",
+        "*.s": "asm6502",
         "*.asm": "plaintext",
         "optional": "c",
         "istream": "c",
@@ -17,6 +20,7 @@
         "lib.h": "c",
         "limits": "c",
         "stdlib.h": "c",
-        "opcode.h": "c"
+        "opcode.h": "c",
+        "bc.h": "c"
     }
 }

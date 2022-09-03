@@ -6,3 +6,11 @@ license "MIT"
 lflags "minivm/bin/libminivm.a"
 sourcePaths "paka"
 stringImportPaths "paka"
+lflags "minivm/bin/libminivm.a"
+buildType "release" {
+    preBuildCommands "cd minivm && make -Bj bin/libminivm.a"
+}
+buildType "debug" {
+    dflags "-fsanitize=address"
+    preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=address'"
+}
