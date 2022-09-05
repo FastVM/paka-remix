@@ -1,0 +1,174 @@
+
+screen_width = 960
+screen_height = screen_width * 16 / 9
+
+player = [screen_width / 2, screen_height / 2]
+
+scl = screen_height / 100
+lines = [
+    [0, 0-3],
+    [1, 1],
+    [0, 0],
+    [0-1, 1]
+]
+
+lasers = [[]]
+
+rocks = [[]]
+
+def abs(v) {
+    if (v < 0) {
+        return 0 - v
+    } else {
+        return v
+    }
+}
+
+def transform(pos) {
+    return [pos.0 * scl + player.0, pos.1 * scl + player.1]
+}
+
+def v2add(a, b) {
+    return [a.0 + b.0, a.1 + b.1]
+}
+
+def v2sub(a, b) {
+    return [a.0 - b.0, a.1 - b.1]
+}
+
+def each(e, f) {
+    if (#e != 0) {
+        f(e.0)
+        each(e.1, f)
+    } 
+}
+
+def filter(e, f) {
+    if (#e != 0) {
+        if (f(e.0)) {
+            return [e.0, filter(e.1, f)]
+        } else {
+            return filter(e.1, f)
+        }
+    } else {
+        return []
+    }
+}
+
+def length(e) {
+    n = 0
+    while (#e != 0) {
+        n = n + 1
+        e = e.1
+    }
+    return n
+}
+
+def draw_lasers() {
+    each(lasers.0, lambda(laser) {
+        raylib:draw_line_v(laser, v2sub(laser, [0, scl]), [255, 0, 0, 255])
+    })
+}
+
+def draw_player() {
+    index = 0
+    while (index < #lines) {
+        start = lines.(index)
+        end = lines.((index + 1) % #lines)
+        raylib:draw_line_v(transform(start), transform(end), [64, 255, 64, 255])
+        index = index + 1
+    }
+}
+
+def square(n) {
+    return n * n
+}
+
+def remove_if_hit(pos) {
+    hit = [0]
+    rocks.0 = filter(rocks.0, lambda(rock) {
+        if (square(rock.0.0 - pos.0) + square(rock.0.1 - pos.1) < square(rock.1)) {
+            hit.0 = hit.0 + 1
+            return 0
+        } else {
+            return 1
+        }
+    })
+    ## i = 0
+    ## while i < hit.0 {
+    ##     rocks.0 = [new_rock(), rocks.0]
+    ##     i = i + 1
+    ## }
+    return hit.0
+}
+
+def draw_rocks() {
+    each(lasers.0, lambda(laser) {
+        remove_if_hit(laser)
+    })
+    each(rocks.0, lambda(rock) {
+        rock.0.0 = rock.0.0 + rock.2
+        rock.0.1 = rock.0.1 + abs(1)
+        rock.0.0 = (rock.0.0 % screen_height + screen_height) % screen_height  
+        raylib:draw_circle_lines(rock.0.0, rock.0.1, rock.1, [128, 128, 196, 255])
+    })
+}
+
+def new_rock() {
+    radius = 25
+    return [[raylib:get_random_value(0, screen_height), 0 - radius], radius, raylib:get_random_value(0-1, 1)]
+}
+
+def main() {
+    t = 0
+
+    while (not raylib:window_should_close()) {
+        if (raylib:is_key_down(raylib:keyboard_key("KEY_D"))) {
+            player.0 = player.0 + 6
+        }
+        if (raylib:is_key_down(raylib:keyboard_key("KEY_A"))) {
+            player.0 = player.0 - 6
+        }
+        if (raylib:is_key_down(raylib:keyboard_key("KEY_W"))) {
+            player.1 = player.1 - 6
+        }
+        if (raylib:is_key_down(raylib:keyboard_key("KEY_S"))) {
+            player.1 = player.1 + 6
+        }
+
+        if (raylib:is_key_pressed(raylib:keyboard_key("KEY_SPACE"))) {
+            lasers.0 = [[player.0, player.1 - scl * 2], lasers.0]
+        }
+
+        if (t % 10 == 0) {
+            rocks.0 = [new_rock(), rocks.0]
+        }
+
+        t = t + 1
+
+        lasers.0 = filter(lasers.0, lambda (laser) {
+            if (laser.1 < 0) {
+                return 0
+            }
+            return 1
+        })
+
+        each(lasers.0, lambda(laser) {
+            laser.1 = laser.1 - scl
+        })
+
+        raylib:begin_drawing()
+        raylib:clear_background([0, 0, 0, 0])
+        
+        draw_rocks()
+        draw_player()
+        draw_lasers()
+
+        raylib:end_drawing()
+    }
+}
+
+raylib:init_window(screen_width, screen_height, "space shooter")
+raylib:set_target_fps(60)
+main()
+raylib:close_window()

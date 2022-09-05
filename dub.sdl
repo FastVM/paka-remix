@@ -3,14 +3,18 @@ description "paka-remix"
 authors "Shaw Summa"
 copyright "Copyright © 2022, Shaw Summa"
 license "MIT"
-lflags "minivm/bin/libminivm.a"
-sourcePaths "paka"
-stringImportPaths "paka"
-lflags "minivm/bin/libminivm.a"
-buildType "release" {
-    preBuildCommands "cd minivm && make -Bj bin/libminivm.a"
+buildType "sanitize" {
+	dflags "-fsanitize=address"
+	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
 }
 buildType "debug" {
-    dflags "-fsanitize=address"
-    preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=address'"
+	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3'"
 }
+buildType "release" {
+	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-O3 -ffast-math -fomit-frame-pointer'"
+}
+dependency "raylib-d" version="~>4.2.0"
+lflags "minivm/bin/libminivm.a" "minivm/bin/libminivm.a"
+lflags "-l:libraylib.a"
+sourcePaths "paka"
+stringImportPaths "paka"

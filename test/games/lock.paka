@@ -1,0 +1,63 @@
+
+screen_width = 640
+screen_height = 480
+
+raylib:init_window(screen_width, screen_height, "a window for you")
+
+raylib:set_target_fps(60)
+
+pos = [screen_width / 2, screen_height / 2]
+
+def max(x, y) {
+    if (x < y) {
+        return y
+    } else {
+        return x
+    }
+}
+
+def min(x, y) {
+    if (y < x) {
+        return y
+    } else {
+        return x
+    }
+}
+
+size = min(pos.0, pos.1)
+
+round = [120, 40]
+user = [0, 2]
+
+def lock_sectors() {
+    raylib:draw_circle_sector(pos, [size * 80, 100], 0, 360, 60, [96, 96, 96, 255])
+    raylib:draw_circle_sector(pos, [size * 80, 100], round.0, round.0 + round.1, round.1, [0, 255, 0, 255])
+    raylib:draw_circle_sector(pos, [size * 80, 100], user.0, user.0 + 1, 1, [255, 255, 255, 255])
+    raylib:draw_circle_sector(pos, [size * 70, 100], 0, 360, 360, [64, 64, 64, 255])
+    user.0 = user.0 + user.1
+    user.0 = (user.0 % 360 + 360) % 360 
+}
+
+def apply() {
+    user.1 = 0 - user.1
+    if (round.0 <= user.0) {
+        if (user.0 <= round.0 + round.1) {
+            round.0 = raylib:get_random_value(0, 350)
+            round.1 = max(round.1 - 1, 12)
+              return 1
+        }
+    }
+    return 0
+}
+
+while (not raylib:window_should_close()) {
+    raylib:begin_drawing()
+    if (raylib:is_key_pressed(raylib:keyboard_key("KEY_SPACE"))) {
+        apply()
+    }
+    raylib:clear_background([64, 64, 64, 255])
+    lock_sectors()
+    raylib:end_drawing()
+}
+
+raylib:close_window()

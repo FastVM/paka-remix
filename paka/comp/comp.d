@@ -648,6 +648,12 @@ struct Compiler
                 {
                     switch (args.form)
                     {
+                    case "index":
+                        Output obj = emitNode(args.args[0]);
+                        Output ind = emitNode(args.args[1]);
+                        Output val = emitNode(form.args[1]);
+                        putStrSep("set", obj, ind, val);
+                        return val;
                     case "args":
                     case "call":
                         if (Ident varname = cast(Ident) args.args[0])
@@ -739,7 +745,20 @@ struct Compiler
         {
             output = Output.imut(allocReg);
         }
-        putStrSep(output, "<- str", ':' ~ value.value.replace("\n", "\\n"));
+        if (output.isNone)
+        {
+            output = Output.imut(allocReg);
+        }
+        Output tmp = Output.imut(allocReg);
+        Output tmpc = Output.imut(allocReg);
+        putStrSep(output, "<- int", value.value.length);
+        putStrSep(output, "<- arr", output);
+        foreach (index, argvalue; value.value)
+        {
+            putStrSep(tmp, "<- int", index);
+            putStrSep(tmpc, "<- int", cast(int) argvalue);
+            putStrSep("set", output, tmp, tmpc);
+        }
         return output; 
     }
 

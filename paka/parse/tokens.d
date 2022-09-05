@@ -15,7 +15,7 @@ string[][] prec = [
 ];
 
 /// operators that dont work like binary operators sometimes
-string[] nops = [".", "not", ",", "->", "\\", "!", "#", ":"];
+string[] nops = [".", "not", ",", "->", "\\", "!", "#"];
 
 /// language keywords
 string[] keywords = [
@@ -196,7 +196,7 @@ redo:
         bool isNumber = true;
         char[] ret;
         while (peek.isAlphaNum || peek == '_' || peek == '$' || peek == '@'
-            || peek == '?') {
+            || peek == '?' || peek == ':') {
             isNumber = isNumber && (peek.isDigit || peek == '.');
             ret ~= read;
         }

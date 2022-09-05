@@ -1,0 +1,30 @@
+
+mlist_new() = [[]]
+
+def mlist_push(list, item) {
+    list.0 = [item, list.0]
+}
+
+def mlist_pop(list, item) {
+    res = list.0.0
+    list.0 = list.0.1
+    return res
+}
+
+def mlist_map(list, func) {
+    res = mlist_new()
+    val = list.0
+    while #val == 2 {
+        mlist_push(res, func(val.0))
+        val = val.1
+    }
+    return res
+}
+
+list = mlist_new()
+
+mlist_push(list, 1)
+mlist_push(list, 2)
+mlist_push(list, 3)
+
+$inspect$(list.0)

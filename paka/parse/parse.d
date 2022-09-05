@@ -69,7 +69,8 @@ void stripNewlines(TokenArray tokens) {
 
 Node readPostCallExtend(TokenArray tokens, Node last) {
     Node[][] args = tokens.readCallArgs;
-    if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
+    if (tokens.first.isOperator(":")) {
+        tokens.nextIs(Token.Type.operator, ":");
         Node sym = genSym;
         Node arg = new Form("lambda", new Form("args", sym), tokens.readBlock);
         args[$ - 1] ~= arg;
