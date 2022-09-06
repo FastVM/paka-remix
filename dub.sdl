@@ -3,11 +3,16 @@ description "paka-remix"
 authors "Shaw Summa"
 copyright "Copyright © 2022, Shaw Summa"
 license "MIT"
-buildType "sanitize" {
-	dflags "-fsanitize=address"
+buildType "tsan" {
+	dflags "-g" "-fsanitize=thread"
+	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=thread -fno-sanitize=leak'"
+}
+buildType "asan" {
+	dflags "-g" "-fsanitize=address"
 	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
 }
 buildType "debug" {
+	dflags "-g"
 	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3'"
 }
 buildType "release" {

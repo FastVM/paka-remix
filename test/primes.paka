@@ -1,0 +1,32 @@
+def is_prime(n) {
+    if n == 2 {
+        return 1
+    }
+    if n % 2 == 0 {
+        return 0
+    }
+    i = 3
+    while i * i <= n {
+        if n % i == 0 {
+            return 0
+        }
+        i = i + 2
+    }
+    return 1
+}
+
+k = 10000
+n = 1000000
+
+def count_primes(n) {
+    i = n * k
+    m = i + k
+    t = 0
+    while i < m {
+        t = t + is_prime(i)
+        i = i + 1
+    }
+    return t
+}
+
+inspect(arr:sum(arr:pmap(arr:range(n / k), count_primes)))

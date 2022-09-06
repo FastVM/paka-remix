@@ -1,7 +1,10 @@
 module paka.vm;
 
+import core.memory;
 import std.conv;
+import std.stdio;
 import std.string;
+import std.traits;
 
 alias Opcode = uint;
 struct Buffer {
@@ -20,177 +23,146 @@ union GCData {
     GCHeader header;
 }
 
-extern(C) ptrdiff_t vm_gc_arr(GC* gc, ptrdiff_t size);
-extern(C) Value vm_gc_get(GC* gc, Value obj, Value index);
-extern(C) void vm_gc_set(GC* gc, Value obj, Value index, Value value);
-extern(C) ptrdiff_t vm_gc_len(GC* gc, Value obj);
-extern(C) Value vm_int_run(State* state, void* block);
-
-struct GC {
-    GCData* buf;
-    ptrdiff_t buf_used;
-    ptrdiff_t buf_alloc;
-
-    ptrdiff_t* move_buf;
-    ptrdiff_t move_alloc;
-
-    ptrdiff_t nregs;
-    Value* regs;
-
-    ptrdiff_t count;
-    ptrdiff_t max;
-
-    State* state;
-
-    bool running;
-
-    static ptrdiff_t len(GC* gc, Value ptr) {
-        return vm_gc_len(gc, ptr);
-    }
-
-    static Value get(GC* gc, Value ptr, Value index) {
-        return vm_gc_get(gc, ptr, index);
-    }
-
-    static void set(GC* gc, Value ptr, Value index, Value data) {
-        vm_gc_set(gc, ptr, index, data);
-    }
-
-    static Value alloc(GC* gc, size_t len) {
-        return Value(vm_gc_arr(gc, cast(ptrdiff_t) len));
-    }
+extern(C) void *vm_malloc(size_t size) {
+    return GC.malloc(size);
 }
+extern(C) void *vm_alloc0(size_t size) {
+    return GC.calloc(size);
+}
+extern(C) void *vm_realloc(void *ptr, size_t size) {
+    return GC.realloc(ptr, size);
+}
+extern(C) void vm_free(void *ptr) {
+    // GC.free(ptr);
+}
+extern(C) Value vm_gc_arr(ptrdiff_t size) {
+    Value[string] ret;
+    ret["length"] = Value(size);
+    return Value(ret);
+}
+extern(C) Value vm_gc_get(Value obj, Value index) {
+    return obj.map[index.toString];
+}
+extern(C) void vm_gc_set(Value obj, Value index, Value value) {
+    obj.map[index.toString] = value;
+}
+extern(C) ptrdiff_t vm_gc_len(Value obj) {
+    return cast(ptrdiff_t) obj.map["length"].val;
+}
+extern(C) Value vm_int_run(State* state, void* block);
 
 union Value {
     void* ptr;
-    ptrdiff_t ival;
+    Value[string] map;
+    double val;
 
-    this(void *v) {
-        assert(cast(size_t) v % 2 == 0);
-        ptr = v;
+    this(Value[string] p) {
+        map = p;
     }
 
-    this(ptrdiff_t v) {
-        ival = v;
+    this(Value other) {
+        val = other.val;
     }
 
-    static Value fromPtr(void* i) {
-        return Value(i);
+    this(Type)(Type v) if (isIntegral!Type || isFloatingPoint!Type) {
+        val = cast(double) v;
     }
 
-    static Value fromInt(ptrdiff_t i) {
-        return Value(i * 2);
-    } 
-
-    ptrdiff_t toInt() {
-        assert(isInt);
-        return ival >> 1;
+    Value opIndex(I)(I index) {
+        return vm_gc_get(this, Value(index));
     }
 
-    ptrdiff_t toArray() {
-        assert(isArray);
-        return ival >> 1;
+    void opIndexAssign(I)(Value value, I index) {
+        vm_gc_set(this, Value(index), value);
     }
 
-
-    bool isInt() {
-        return (ival & 1) == 0;
-    }
-
-    bool isArray() {
-        return (ival & 1) == 1;
-    }
-}
-
-struct Data {
-    GC* gc;
-    Value val;
-
-    this(GC* gc_, Value val_) {
-        gc = gc_;
-        val = val_;
-    }
-
-    ptrdiff_t toInt() {
-        return val.toInt();
-    }
-
-    Data opIndex(size_t index) {
-        return Data(gc, GC.get(gc, val, Value.fromInt(index)));
-    }
-
-    Data opIndex(Value index) {
-        return Data(gc, GC.get(gc, val, index));
-    }
-
-    ptrdiff_t opCast(T)() const if (is(T == ptrdiff_t)) {
-        return val.toInt();
-    }
-    
     ptrdiff_t length() {
-        return GC.len(gc, val);
+        return vm_gc_len(this);
     }
 
-    string str(Value[] done = null) {
-        if (val.isInt) {
-            return val.toInt.to!string;
-        } else {
-            foreach (index, ent; done) {
-                if (ent.ival == val.ival) {
-                    return "$" ~ index.to!string;
-                }
-            }
-            done ~= val;
-            scope(exit) done = done[0..$-1];
-            string ret;
-            ret ~= "[";
-            foreach (index; 0..length) {
-                if (index != 0) {
-                    ret ~= ", ";
-                }
-                ret ~= this[index].str(done);
-            }
-            ret ~= "]";
-            return ret;
+    Value rawCall(Value[] args) {
+        State state;
+        state.framesize = 64;
+        state.locals = cache;
+        cache += 256;
+        scope(exit) {
+            cache -= 256;
         }
+        foreach (key, value; args) {
+            state.locals[key + 1] = value;
+        }
+        state.funcs = deles.ptr;
+        state.heads = new void*[256].ptr;
+        Value ret = vm_int_run(&state, cast(void*) ptr);
+        return ret;
     }
 
-    Data opCall(Data[] args) {
-        foreach (index, arg; args) {
-            gc.state.locals[index + 1] = arg.val;
+    Value opCall(Params...)(Params params) {
+        Value[] args = [this];
+        static foreach (param; params) {
+            args ~= param;
         }
-        return Data(gc, vm_int_run(gc.state, val.ptr));
+        return this[0].rawCall(args);
+    }
+
+    bool opCast(T : bool)() const {
+        return val != 0;    
+    }
+
+    string chars() {
+        string ret;
+        foreach (i; 0..this.length) {
+            ret ~= cast(char) this[i].val;
+        }
+        return ret;
     }
 
     string toString() {
-        return this.str(null);    
+        if (Value* base = cast(Value*) GC.addrOf(ptr)) {
+            size_t len = this.length;
+            string ret;
+            ret ~= "[";
+            foreach (i; 0..len) {
+                if (i != 0) {
+                    ret ~= ", ";
+                }
+                ret ~= this[i].toString;
+            }
+            ret ~= "]";
+            return ret;
+        } else {
+            return val.to!string;
+        }
     }
+}
+
+Value* cache;
+static this() {
+    cache = new Value[2 ^^ 20].ptr;
 }
 
 struct State
 {
-    size_t nblocks;
-    void *blocks;
     void **heads;
-    GC gc;
     size_t framesize;
     Delegate *funcs;
-    void **ptrs;
     Value *locals;
 }
 
-alias Function = Value delegate(GC* gc, size_t nargs, Value *args);
+alias Function = Value delegate(size_t nargs, Value *args);
 
 struct Delegate {
     void *data;
-    Value function(GC* gc, size_t nvalues, Value* values) func;
+    Value function(size_t nvalues, Value* values) func;
 }
 
 extern (C) void vm_run_arch_int(size_t nops, Opcode* opcodes, Delegate* funcs);
 extern (C) Buffer vm_asm(const char* src);
 
+Delegate[] deles;
+
 void run(string src, Function[] funcs) {
-    Delegate[] deles;
+    deles = null;
     foreach (func; funcs) {
         deles ~= Delegate(func.ptr, func.funcptr);
     }
