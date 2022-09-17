@@ -10,7 +10,7 @@ UnaryOp parseUnaryOp(string[] ops) {
     if (opName == "#") {
         return (Node rhs) { return new Form("length", [rhs]); };
     } else if (opName == "not") {
-        return (Node rhs) { return new Form("!=", rhs, new Value!bool(true)); };
+        return (Node rhs) { return new Form("if", rhs, new Value!bool(false), new Value!bool(true)); };
     } else if (opName == "-") {
         throw new Exception("parse error: not a unary operator: " ~ opName
                 ~ " (consider 0- instead)");

@@ -77,7 +77,7 @@ def length(e) {
 
 def draw_lasers() {
     each(lasers.0, lambda(laser) {
-        raylib:draw_line_v(laser, v2sub(laser, [0, scl]), [255, 0, 0, 255])
+        draw_line_v(laser, v2sub(laser, [0, scl]), [255, 0, 0, 255])
     })
 }
 
@@ -86,7 +86,7 @@ def draw_player() {
     while (index < #lines) {
         start = lines.(index)
         end = lines.((index + 1) % #lines)
-        raylib:draw_line_v(transform(start), transform(end), [64, 255, 64, 255])
+        draw_line_v(transform(start), transform(end), [64, 255, 64, 255])
         index = index + 1
     }
 }
@@ -102,8 +102,8 @@ def remove_if_hit(pos) {
         if square(rock.0.0 - pos.0) + square(rock.0.1 - pos.1) < square(rock.1) {
             if rock.1 >= 20 {
                 size = rock.1 * 3 / 4
-                r0 = [[rock.0.0, rock.0.1], size, 0 - abs(rock.2) - raylib:get_random_value(0, 1)]
-                r1 = [[rock.0.0, rock.0.1], size, 0 + abs(rock.2) + raylib:get_random_value(0, 1)]
+                r0 = [[rock.0.0, rock.0.1], size, 0 - abs(rock.2) - get_random_value(0, 1)]
+                r1 = [[rock.0.0, rock.0.1], size, 0 + abs(rock.2) + get_random_value(0, 1)]
                 tmp.0 = [r0, [r1, tmp.0]]
                 hit.0 = hit.0 + 1
             }
@@ -127,36 +127,36 @@ def draw_rocks() {
     })
     each(rocks.0, lambda(rock) {
         rock.0.0 = rock.0.0 + rock.2
-        rock.0.1 = rock.0.1 + abs(rock.2) / 2
+        rock.0.1 = rock.0.1 + abs(rock.2) / 8
         rock.0.0 = (rock.0.0 % screen_width + screen_width) % screen_width
-        raylib:draw_circle_lines(rock.0.0, rock.0.1, rock.1, [128, 128, 196, 255])
+        draw_circle_lines(rock.0.0, rock.0.1, rock.1, [128, 128, 196, 255])
     })
 }
 
 def new_rock() {
-    radius = 100
-    return [[raylib:get_random_value(0, screen_width), 0 - radius], radius, raylib:get_random_value(0, 1) * 2 - 1]
+    radius = 200
+    return [[get_random_value(0, screen_width), 9 - radius], radius, get_random_value(0, 1) * 2 - 1]
 }
 
 def main() {
     t = 0
 
-    while (not raylib:window_should_close()) {
-        if (raylib:is_key_down(raylib:keyboard_key("KEY_D"))) {
+    while (not window_should_close()) {
+        if (is_key_down(keyboard_key("KEY_D"))) {
             player.0 = player.0 + 6
         }
-        if (raylib:is_key_down(raylib:keyboard_key("KEY_A"))) {
+        if (is_key_down(keyboard_key("KEY_A"))) {
             player.0 = player.0 - 6
         }
-        if (raylib:is_key_down(raylib:keyboard_key("KEY_W"))) {
+        if (is_key_down(keyboard_key("KEY_W"))) {
             player.1 = player.1 - 6
         }
-        if (raylib:is_key_down(raylib:keyboard_key("KEY_S"))) {
+        if (is_key_down(keyboard_key("KEY_S"))) {
             player.1 = player.1 + 6
         }
 
-        ## if (raylib:is_key_pressed(raylib:keyboard_key("KEY_SPACE"))) {
-        if t % 5 == 0 {
+        ## if (is_key_pressed(keyboard_key("KEY_SPACE"))) {
+        if t % 1 == 0 {
             lasers.0 = [[player.0, player.1 - scl * 2], lasers.0]
         }
         ## }
@@ -178,20 +178,20 @@ def main() {
             laser.1 = laser.1 - scl
         })
 
-        raylib:begin_drawing()
-        raylib:clear_background([0, 0, 0, 0])
+        begin_drawing()
+        clear_background([0, 0, 0, 0])
         
-        raylib:draw_text(str:from(points.0), 10, 10, 20, [255, 255, 255, 255])
+        draw_text(str:from(points.0), 10, 10, 20, [255, 255, 255, 255])
 
         draw_rocks()
         draw_player()
         draw_lasers()
 
-        raylib:end_drawing()
+        end_drawing()
     }
 }
 
-raylib:init_window(screen_width, screen_height, "space shooter")
-raylib:set_target_fps(60)
+init_window(screen_width, screen_height, "space shooter")
+set_target_fps(60)
 main()
-raylib:close_window()
+close_window()

@@ -1,5 +1,6 @@
 module paka.main;
 
+static import std.math;
 import std.algorithm;
 import std.array;
 import std.conv;
@@ -9,7 +10,10 @@ import std.parallelism: taskPool, task;
 import std.range;
 import std.stdio;
 import std.string;
+import std.file;
 import std.traits;
+
+import core.memory: GC;
 
 import paka.srcloc;
 import paka.parse.parse;
@@ -17,29 +21,48 @@ import paka.comp.comp;
 import paka.vm;
 
 static import raylib;
+static import rlgl;
 
 Value toValue(Type)(Type arg) if (is(Type == bool)) {
-    return Value(arg ? 1 : 0);
+    return Value(arg);
 }
 
 Value toValue(Type)(Type arg) if (isIntegral!Type || isFloatingPoint!Type) {
-    return Value(cast(ptrdiff_t) arg);
+    return Value(cast(double) arg);
 }
 
 Value toValue(Type)(Type arg) if (isArray!Type) {
-    Value ret = vm_gc_arr(arg.length);
+    Value ret = vm_gc_arr(&state.gc, arg.length);
     foreach (index, value; arg) {
         ret[index] = toValue(value);
     }
     return ret;
 }
 
-Value toValue(Type)(Type arg) if (is(Type == const(char)*)) {
-    return toValue(arg.fromStringz);
+Value toValue(Type)(Type arg) if (isPointer!Type && isSomeChar!(PointerTarget!Type)) {
+    import core.stdc.string: strlen;
+    return toValue(arg[0..strlen(arg)]);
 }
 
 Value toValue(Type)(Type arg) if (isSomeChar!Type) {
     return toValue(cast(ptrdiff_t) arg);
+}
+
+Value toValue(Type)(Type arg) if (isPointer!Type && !isSomeChar!(PointerTarget!Type)) {
+    struct Intern {
+        Value.Type tag;
+        Type data;
+    }
+    Intern *it = new Intern(Value.Type.userdata, arg);
+    return Value(it);
+}
+
+Type fromValue(Type)(Value arg) if (isPointer!Type && !isSomeChar!(PointerTarget!Type)) {
+    struct Intern {
+        Value.Type tag;
+        Type data;
+    }
+    return (* cast(Intern*) arg.pointer).data;
 }
 
 Type fromValue(Type)(Value arg) if (isSomeChar!Type) {
@@ -47,28 +70,44 @@ Type fromValue(Type)(Value arg) if (isSomeChar!Type) {
 }
 
 Type fromValue(Type)(Value arg) if (isFloatingPoint!Type) {
-    return cast(Type) arg.val;
+    return cast(Type) arg.toNumber;
 }
 
 Type fromValue(Type)(Value arg) if (isIntegral!Type) {
-    return cast(Type) arg.val;
+    return cast(Type) arg.toNumber;
 }
 
-Type fromValue(Type)(Value arg) if (isArray!Type) {
+Type fromValue(Type)(Value arg) if (isDynamicArray!Type) {
     Type ret;
-    foreach (i; 0..arg.length) {
-        ret ~= fromValue!(ElementType!Type)(arg[i]);
+    foreach (k; 0..arg.length) {
+        ret ~= fromValue!(ElementType!Type)(arg[k]);
     }
     return ret;
 }
 
-Type fromValue(Type)(Value arg) if (is(Type == const(char)*)){
-    return fromValue!string(arg).toStringz;
+Type fromValue(Type)(Value arg) if (isStaticArray!Type) {
+    Type ret;
+    foreach (k; 0..arg.length) {
+        ret[k] = fromValue!(ElementType!Type)(arg[k]);
+    }
+    return ret;
 }
 
-Value toFunc(alias val)(size_t len, Value * values) if (__traits(isStaticFunction, val)) {
-    Value[] args = values[0..len];
-    Parameters!(typeof(val)) params;
+Type fromValue(Type)(Value arg) if (isPointer!Type && isSomeChar!(PointerTarget!Type)) {
+    PointerTarget!Type[] ret;
+    foreach (k; 0..arg.length) {
+        ret ~= fromValue!(PointerTarget!Type)(arg[k]);
+    }
+    ret ~= 0;
+    return ret.ptr;
+}
+
+Type fromValue(Type)(Value arg) if (is(Type == bool)){
+    return arg.toBool;
+}
+
+Value toFunc(alias val)(Value[] args) if (__traits(isStaticFunction, val)) {
+    staticMap!(Unqual, Parameters!(typeof(val))) params;
     static foreach (index; 0 .. params.length) {
         params[index] = fromValue!(typeof(params[index]))(args[index]);
     }
@@ -82,102 +121,40 @@ Value toFunc(alias val)(size_t len, Value * values) if (__traits(isStaticFunctio
 
 /// raylib conv
 
-Value toValue(Type)(Type arg) if (is(Type == void*)) {
-    return Value(arg);
+template ok(alias Type) {
+    enum ok = !is(Type) && !is(typeof(Type) == void) && !is(typeof(Type) == function);
 }
 
-Value toValue(Type)(Type arg) if (is(Type == raylib.Vector2)) {
-    Value ret = vm_gc_arr(2);
-    ret[0] = toValue(arg.x);
-    ret[1] = toValue(arg.y);
-    return ret;
-}
-
-Type fromValue(Type)(Value arg) if (is(Type == raylib.Vector2)) {
-    return raylib.Vector2(fromValue!float(arg[0]), fromValue!float(arg[1]));
-}
-
-Type fromValue(Type)(Value arg) if (is(Type == raylib.Color)) {
-    return raylib.Color(
-        fromValue!ubyte(arg[0]),
-        fromValue!ubyte(arg[1]),
-        fromValue!ubyte(arg[2]),
-        fromValue!ubyte(arg[3])
-    );
-}
-
-Value toValue(Type)(Type arg) if (is(Type == raylib.Color)) {
-    Value ret = GC.alloc(2);
-    ret[0] = toValue(arg.r);
-    ret[1] = toValue(arg.g);
-    ret[2] = toValue(arg.b);
-    ret[3] = toValue(arg.a);
-    return ret;
-}
-
-/// main
-
-string name(string name) {
-    string ret = "raylib:";
-    bool last = false;
-    foreach (index, chr; name) {
-        if ('A' <= chr && chr <= 'Z') {
-            if (index != 0 && !last) {
-                ret ~= '_';
-                last = true;
-            }
-            ret ~= chr - 'A' + 'a';
-        } else {
-            ret ~= chr;
-            if (chr != '_') {
-                last = false;
-            }
+Value toValue(Type)(Type arg) if (is(Type == struct)) {
+    Value ret = vm_gc_tab(&state.gc);
+    static foreach (name; __traits(allMembers, Type)) {
+        static if (!is(__traits(getMember, arg, name)) && ok!(__traits(getMember, Type, name))) {
+            ret[toValue(name)] = toValue(__traits(getMember, arg, name));
         }
     }
     return ret;
 }
 
-Value dynamicFold(size_t chunk=256)(Value func, Value[] range) {
-    if (range.length == 1) {
-        return range[0];
-    } else if (range.length < chunk) {
-        size_t half = range.length / 2;
-        Value left = dynamicFold!chunk(func, range[0..half]);
-        Value right = dynamicFold!chunk(func, range[half..$]);
-        return func(left, right);
-    } else {
-        size_t half = range.length / 2;
-        auto left = task!(dynamicFold!chunk)(func, range[0..half]);
-        auto right = task!(dynamicFold!chunk)(func, range[half..$]);
-        taskPool.put(left);
-        taskPool.put(right);
-        return func(left.yieldForce(), right.yieldForce());
+Type fromValue(Type)(Value arg) if (is(Type == struct)) {
+    Type ret;
+    static foreach (name; __traits(allMembers, Type)) {
+        static if (!is(__traits(getMember, ret, name)) && ok!(__traits(getMember, Type, name))) {
+            __traits(getMember, ret, name) = fromValue!(typeof(__traits(getMember, ret, name)))(arg[toValue(name)]);
+        }
     }
+    return ret; 
 }
 
-Value staticFold(alias func, size_t chunk=256)(Value[] range) {
-    if (range.length == 1) {
-        return range[0];
-    } else {
-        size_t half = range.length / 2;
-        Value left = staticFold!(func, chunk)(range[0..half]);
-        Value right = staticFold!(func, chunk)(range[half..$]);
-        return func(left, right);
-    // } else {
-    //     size_t half = range.length / 2;
-    //     auto left = task!(staticFold!(func, chunk))(range[0..half]);
-    //     auto right = task!(staticFold!(func, chunk))(range[half..$]);
-    //     taskPool.put(left);
-    //     taskPool.put(right);
-    //     return func(left.yieldForce(), right.yieldForce());
-    }
+/// main
+
+version (GNU) {
+    extern(C) const char *raylibVersion = "4.0.1";
 }
 
 void main(string[] args) {
     string src = args[1].readText;
     Function[string] funcs;
-    funcs["print"] = (size_t len, Value* values) {
-        Value[] args = values[0..len];
+    funcs["print"] = (Value[] args) {
         foreach (index, arg; args) {
             if (index != 0) {
                 write(" ");
@@ -194,10 +171,10 @@ void main(string[] args) {
                 static foreach (n; EnumMembers!(__traits(getMember, raylib, m))) {
                     map[n.to!string] = cast(ptrdiff_t) n;
                 }
-                funcs[name(m)] = (size_t len, Value* values) {
+                funcs[m] = (Value[] values) {
                     string name = fromValue!string(values[0]);
-                    if (name in map) {
-                        return toValue(map[name]);
+                    if (auto v = name in map) {
+                        return toValue(*v);
                     } else {
                         throw new Exception("enum key error: " ~ name);
                     }
@@ -205,32 +182,59 @@ void main(string[] args) {
             }
         }
         static if (__traits(isStaticFunction, __traits(getMember, raylib, m))) {
-            static if (__traits(compiles, &toFunc!(__traits(getMember, raylib, m)))) {
-                static if (
-                    m != "SetWindowOpacity"
-                    && m != "EnableEventWaiting"
-                    && m != "DisableEventWaiting"
-                    && m != "ExportDataAsCode"
-                    && m != "GetFileLength"
-                    && m != "IsPathFile"
-                    && m != "GetMouseWheelMoveV"
-                    && m != "GetApplicationDirectory"
-                ) {
-                    funcs[name(m)] = (size_t len, Value* values) {
-                        return toFunc!(__traits(getMember, raylib, m))(len, values);
-                    };
+            funcs[m] = (Value[] values) {
+                return toFunc!(__traits(getMember, raylib, m))(values);
+            };
+        }
+    }
+    static foreach (m; __traits(allMembers, rlgl)) {
+        static if (is(__traits(getMember, rlgl, m) == enum)) {
+            {
+                ptrdiff_t[string] map = null;
+                static foreach (n; EnumMembers!(__traits(getMember, rlgl, m))) {
+                    map[n.to!string] = cast(ptrdiff_t) n;
+                }
+                funcs[m] = (Value[] values) {
+                    string name = fromValue!string(values[0]);
+                    if (auto v = name in map) {
+                        return toValue(*v);
+                    } else {
+                        throw new Exception("enum key error: " ~ name);
+                    }
+                };
+            }
+        }
+        static if (__traits(isStaticFunction, __traits(getMember, rlgl, m))) {
+            funcs[m] = (Value[] values) {
+                return toFunc!(__traits(getMember, rlgl, m))(values);
+            };
+        }
+    }
+    Value table = vm_gc_tab(&state.gc); 
+    static foreach (k; ["algebraic", "constants", "exponential", "operations", "remainder", "rounding", "traits", "trigonometry"])
+    {
+        {
+            alias math = __traits(getMember, std.math, k);
+            static foreach (m; __traits(allMembers, math)) {
+                static if (m != "approxEqual") {
+                    static if (is(typeof(__traits(getMember, math, m)) == function)) {
+                        funcs["math:" ~ m] = (Value[] values) {
+                            return toFunc!(__traits(getMember, math, m))(values);
+                        };
+                    }
                 }
             }
         }
     }
-    funcs["str:from"] = (size_t len, Value* values) {
+    funcs["str:from"] = (Value[] values) {
         string str = values[0].toString;
-        Value ret = vm_gc_arr(str.length);
+        Value ret = vm_gc_arr(&state.gc, str.length);
         foreach (index, chr; str) {
             ret[index] = Value(cast(double) chr);
         }
         return ret;
     };
     Result res = SrcLoc(args[1], src).parseUncached.compileProgram(funcs);
+    File("out.vasm", "w").writeln(res.src);
     run(res.src, res.funcs);
 }

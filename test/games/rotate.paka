@@ -1,0 +1,144 @@
+
+oncolor  = [255, 255, 255, 16]
+offcolor = [  0,   0,   0, 16]
+
+def make_board(xsize, ysize) {
+    size = [xsize, ysize]
+    data = new xsize
+    x = 0
+    while x < xsize {
+        y = 0
+        data.(x) = new ysize
+        while y < ysize {
+            data.(x).(y) = 0
+            y = y + 1
+        }
+        x = x + 1
+    }
+    return [size, data, [0, 0]]
+}
+
+def board_each(board, fn) {
+    size = board.0
+    x = 0
+    while x < size.0 {
+        y = 0
+        while y < size.1 {
+            fn([x, y])
+            y = y + 1
+        }
+        x = x + 1
+    }
+}
+
+def board_randomize(board, part) {
+    board_each(board): {
+        x = $1.0
+        y = $1.1
+        if get_random_value(0, part) < 1 {
+            board.1.(x).(y) = 1
+        } else {
+            board.1.(x).(y) = 0
+        }
+    }
+}
+
+def board_next(board, t) {
+    xsize = board.0.0
+    ysize = board.0.1
+
+    bit = 1 - board.2.0
+    board.2.0 = bit
+    
+    data = board.1
+
+    fwd = board.2.1
+
+    x = bit
+    while x < xsize {
+        y = bit
+        while y < ysize {
+            x0 = x
+            y0 = y
+            x1 = (x + 1) % xsize
+            y1 = (y + 1) % xsize
+
+            v0 = data.(x0).(y0)
+            v1 = data.(x0).(y1)
+            v2 = data.(x1).(y0) 
+            v3 = data.(x1).(y1) 
+
+            if fwd {
+                if v0 + v1 + v2 + v3 == 1 {
+                    data.(x0).(y0) = v3
+                    data.(x0).(y1) = v0
+                    data.(x1).(y0) = v1
+                    data.(x1).(y1) = v2
+                }
+            } else {
+                if v0 + v1 + v2 + v3 == 1 {
+                    data.(x0).(y0) = v1
+                    data.(x0).(y1) = v2
+                    data.(x1).(y0) = v3
+                    data.(x1).(y1) = v0
+                }
+            }
+
+            y = y + 2
+        }
+        x = x + 2
+    }
+}
+
+size = 100
+
+board = make_board(size, size)
+
+board_randomize(board, 50)
+
+init_window(2000, 2000, "GAME OF LIFE")
+
+n = 0
+
+running = 1
+slow = 32
+
+set_target_fps(60)
+
+while not window_should_close() {
+    if is_key_pressed(keyboard_key("KEY_SPACE")) {
+        running = 1 - running
+    }
+    if is_key_pressed(keyboard_key("KEY_LEFT")) {
+        if slow > 1 {
+            slow = slow / 2
+        }
+    }
+    if is_key_pressed(keyboard_key("KEY_RIGHT")) {
+        slow = slow * 2
+    }
+    xscl = get_screen_width() / board.0.0
+    yscl = get_screen_height() / board.0.1
+    begin_drawing()
+    draw_fps(10, 10)
+    clear_background([0, 0, 0, 255])
+    board_each(board): {
+        x = $1.0
+        y = $1.1
+        cur = board.1.(x).(y)
+        if cur != 0 {
+            draw_rectangle(x * xscl, y * yscl, xscl, yscl, [0, 0, 0, 255])
+        } else {
+            draw_rectangle(x * xscl, y * yscl, xscl, yscl, [255, 255, 255, 255])
+        }
+    }
+    if running {
+        n = n + 1
+        if n % slow == 0 {
+            board_next(board)
+        }
+    }
+    end_drawing()
+}
+
+close_window()

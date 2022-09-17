@@ -186,8 +186,8 @@ struct Compiler {
     }
 
     Output emitIdent(Ident ident, Output output) {
-        if (ident.repr[0] == '$' && ident.repr[1..$].isNumeric) {
-            return Output.imut(ident.repr[1..$].to!size_t + 1);
+        if (ident.repr[0] == '$' && ident.repr[1 .. $].isNumeric) {
+            return Output.imut(ident.repr[1 .. $].to!size_t + 1);
         }
         if (ident.repr in locals) {
             return Output.imut(locals[ident.repr]);
@@ -323,12 +323,34 @@ struct Compiler {
                     return output;
                 }
             }
+        case "true": {
+            if (output.isNone) {
+                output = Output.imut(allocReg);
+            }
+            putStrSep(output, "<- true");
+            return output;
+        }
+        case "false": {
+            if (output.isNone) {
+                output = Output.imut(allocReg);
+            }
+            putStrSep(output, "<- false");
+            return output;
+        }
         case "length": {
                 if (output.isNone) {
                     output = Output.imut(allocReg);
                 }
                 Output arg = emitNode(form.args[0]);
                 putStrSep(output, "<- len", arg);
+                return output;
+            }
+        case "new": {
+                if (output.isNone) {
+                    output = Output.imut(allocReg);
+                }
+                Output value = emitNode(form.args[0]);
+                putStrSep(output, "<- arr", value);
                 return output;
             }
         case "array": {
@@ -505,6 +527,11 @@ struct Compiler {
                     throw new Exception("cannot have lambda with out arguments parameter");
                 }
             }
+        case "object": {
+                Output outreg = output.isNone ? Output.imut(allocReg) : output;
+                putStrSep(outreg, "<- tab");
+                return outreg;
+            }
         case "set": {
                 if (Ident ident = cast(Ident) form.args[0]) {
                     if (ident.repr !in locals) {
@@ -582,10 +609,11 @@ struct Compiler {
             output = Output.imut(allocReg);
         }
         if (value.value) {
-            return emitValue(new Value!BigInt(BigInt(1)), output);
+            putStrSep(output, "<- true");
         } else {
-            return emitValue(new Value!BigInt(BigInt(0)), output);
+            putStrSep(output, "<- false");
         }
+        return output;
     }
 
     Output emitValue(Value!string value, Output output) {

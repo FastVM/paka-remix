@@ -3,23 +3,24 @@ description "paka-remix"
 authors "Shaw Summa"
 copyright "Copyright © 2022, Shaw Summa"
 license "MIT"
+buildType "debug" {
+	dflags "-g"
+	preGenerateCommands "pwd; make -C minivm -Bj bin/libminivm.a OPT='-g3'"
+}
 buildType "tsan" {
 	dflags "-g" "-fsanitize=thread"
-	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=thread -fno-sanitize=leak'"
+	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-g3 -fsanitize=thread -fno-sanitize=leak'"
 }
 buildType "asan" {
 	dflags "-g" "-fsanitize=address"
-	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
-}
-buildType "debug" {
-	dflags "-g"
-	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-g3'"
+	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
 }
 buildType "release" {
-	preBuildCommands "cd minivm && make -Bj bin/libminivm.a OPT='-O3 -ffast-math -fomit-frame-pointer'"
+	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-O3 -ffast-math -fomit-frame-pointer'"
+	dflags:ldc "-release"
+	dflags:gdc "-frelease"
 }
-dependency "raylib-d" version="~>4.2.0"
-lflags "minivm/bin/libminivm.a" "minivm/bin/libminivm.a"
-lflags "-l:libraylib.a"
+dependency "raylib-d" version="4.0.1"
+lflags "minivm/bin/libminivm.a" "-l:libraylib.a"
 sourcePaths "paka"
 stringImportPaths "paka"

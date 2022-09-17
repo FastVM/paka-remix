@@ -1,0 +1,36 @@
+def Vector2(x, y) {
+    return table {
+        @x = x
+        @y = y
+    }
+}
+
+def Vector3(x, y, z) {
+    return table {
+        @x = x
+        @y = y
+        @z = z
+    }
+}
+
+def Color(r, g, b, a) {
+    return table {
+        @r = r
+        @g = g
+        @b = b
+        @a = a
+    }
+}
+
+def Camera3D() {
+    return table {
+        @position = Vector3(0, 0, 0)
+        @target = Vector3(0, 0, 0)
+        @up = Vector3(0, 1, 0)
+        @fovy = 90
+        @projection = CameraProjection("CAMERA_PERSPECTIVE")
+    }
+}
+
+RL_TRIANGLES = 4
+RL_QUADS = 7

@@ -98,38 +98,24 @@ Node readPostExtendImpl(TokenArray tokens, Node last) {
         } else if (tokens.first.isOpen("(")) {
             Node[] arr = tokens.readParens;
             ret = new Form("index", last, arr);
-        } else {
-            Node key = void;
-            if (tokens.first.value[0].isDigit) {
-                key = new Value!BigInt(tokens.first.value.to!BigInt);
-            } else {
-                key = new Value!string(tokens.first.value);
-            }
+        } else if (tokens.first.isString) {
+            ret = new Form("index", last, new Value!string(tokens.first.value));
+            tokens.nextIs(Token.Type.string);
+        } else if (tokens.first.value[0].isDigit) {
+            ret = new Form("index", last, new Value!BigInt(tokens.first.value.to!BigInt));
             tokens.nextIs(Token.Type.ident);
-            if (Form form = cast(Form) last) {
-                if (form.form == "cache") {
-                    last = form.args[0];
-                }
-                if (form.form == "do") {
-                    if (Form form2 = cast(Form) form.args[$ - 1]) {
-                        if (form2.form == "cache") {
-                            last = new Form("do", form.args[0 .. $ - 1], form2.args[0]);
-                        }
-                    }
-                }
-            }
-            // Node sym = genSym;
-            // Node setsym = new Form("set", sym, last);
-            // Node indexed = new Form("index", sym, key);
-            // Node res = new Form("cache", indexed, sym);
-            // Node res = indexed;
-            // ret = new Form("do", setsym, res);
-            ret = new Form("index", last, key);
+        } else {
+            throw new Exception("bad dotindex parse");
         }
     } else {
         return last; // throw new Exception("parse error " ~ tokens.to!string);
     }
     return tokens.readPostExtend(ret);
+}
+
+alias readStatic = Spanning!readStaticImpl;
+Node readStaticImpl(TokenArray tokens) {
+    return new Form("static", tokens.readBlock());
 }
 
 /// read an if statement
@@ -146,7 +132,8 @@ Node readIfImpl(TokenArray tokens) {
     }
     return new Form("if", cond, iftrue, iffalse);
 }
-/// read an if statement
+
+/// read a while statement
 alias readWhile = Spanning!readWhileImpl;
 Node readWhileImpl(TokenArray tokens) {
     Node cond = tokens.readExprBase;
@@ -261,6 +248,12 @@ Node readStringPart(ref string str, ref Span span) {
     return node;
 }
 
+Ident thisValue;
+
+static this() {
+    thisValue = genSym();
+}
+
 /// reads first element of postfix expression
 alias readPostExpr = Spanning!readPostExprImpl;
 Node readPostExprImpl(TokenArray tokens) {
@@ -283,21 +276,17 @@ Node readPostExprImpl(TokenArray tokens) {
         } else {
             last = new Form("tuple", nodes);
         }
+    } else if (tokens.first.isKeyword("table")) {
+        tokens.nextIs(Token.Type.keyword, "table");
+        Ident thisValueOld = thisValue;
+        scope(exit) thisValue = thisValueOld;
+        thisValue = genSym();
+        Node n1 = new Form("set", thisValue, new Form("object"));
+        Node n2 = tokens.readBlock();
+        Node n3 = thisValue;
+        last = new Form("do", n1, n2, n3);
     } else if (tokens.first.isOpen("[")) {
         last = new Form("array", tokens.readSquare);
-    } else if (tokens.first.isKeyword("cache")) {
-        tokens.nextIs(Token.Type.keyword, "cache");
-        Node[] checks = void;
-        if (tokens.first.isOpen("(")) {
-            checks = tokens.readParens;
-        } else {
-            checks = null;
-        }
-        if (tokens.first.isOpen("{") || tokens.first.isOperator(":")) {
-            last = new Form("cache", tokens.readBlock, checks);
-        } else {
-            last = new Form("cache", tokens.readPostExpr, checks);
-        }
     } else if (tokens.first.isKeyword("require")) {
         tokens.nextIs(Token.Type.keyword, "require");
         last = new Form("require", new Value!string(tokens.first.value));
@@ -312,17 +301,26 @@ Node readPostExprImpl(TokenArray tokens) {
     } else if (tokens.first.isKeyword("if")) {
         tokens.nextIs(Token.Type.keyword, "if");
         last = tokens.readIf;
+    } else if (tokens.first.isKeyword("static")) {
+        tokens.nextIs(Token.Type.keyword, "static");
+        last = tokens.readStatic;
     } else if (tokens.first.isKeyword("while")) {
         tokens.nextIs(Token.Type.keyword, "while");
         last = tokens.readWhile;
     } else if (tokens.first.isKeyword("true")) {
         tokens.nextIs(Token.Type.keyword, "true");
         last = new Value!bool(true);
+    } else if (tokens.first.isKeyword("this")) {
+        tokens.nextIs(Token.Type.keyword, "this");
+        last = thisValue;
     } else if (tokens.first.isKeyword("false")) {
         tokens.nextIs(Token.Type.keyword, "false");
         last = new Value!bool(false);
     } else if (tokens.first.isIdent) {
-        if (tokens.first.value[0].isDigit) {
+        if (tokens.first.value[0] == '@') {
+            last = new Form("index", thisValue, new Value!string(tokens.first.value[1..$]));
+            tokens.nextIs(Token.Type.ident);
+        } else if (tokens.first.value[0].isDigit) {
             last = new Value!BigInt(tokens.first.value.to!BigInt);
             tokens.nextIs(Token.Type.ident);
         } else {
@@ -349,6 +347,10 @@ Node readPostExprImpl(TokenArray tokens) {
 /// read prefix before postfix expression.
 alias readPreExpr = Spanning!readPreExprImpl;
 Node readPreExprImpl(TokenArray tokens) {
+    if (tokens.first.isKeyword("new")) {
+        tokens.nextIs(Token.Type.keyword, "new");
+        return new Form("new", readPreExprImpl(tokens));
+    }
     if (tokens.first.isOperator) {
         string[] vals;
         while (tokens.first.isOperator) {
@@ -471,7 +473,7 @@ Node parsePakaAs(alias parser)(SrcLoc loc) {
     try {
         Node node = parser(tokens);
         return node;
-    } catch (Error e) {
+    } catch (Exception e) {
         string[] lines = loc.src.split("\n");
         size_t[] nums;
         size_t ml = 0;

@@ -20,8 +20,8 @@ string[] nops = [".", "not", ",", "->", "\\", "!", "#", ":"];
 /// language keywords
 string[] keywords = [
     "if", "else", "return", "def", "lambda",
-    "true", "false", "table",
-    "while", "import", "require"
+    "true", "false", "table", "this",
+    "while", "import", "require", "new",
 ];
 
 /// gets the operators by length not precidence

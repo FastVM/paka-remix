@@ -1,0 +1,122 @@
+
+oncolor  = [255, 255, 255, 16]
+offcolor = [  0,   0,   0, 16]
+
+def make_board(xsize, ysize) {
+    size = [xsize, ysize]
+    data = new xsize
+    x = 0
+    while x < xsize {
+        y = 0
+        data.(x) = new ysize
+        while y < ysize {
+            data.(x).(y) = 0
+            y = y + 1
+        }
+        x = x + 1
+    }
+    return [size, data]
+}
+
+def board_each(board, fn) {
+    size = board.0
+    x = 0
+    while x < size.0 {
+        y = 0
+        while y < size.1 {
+            fn([x, y])
+            y = y + 1
+        }
+        x = x + 1
+    }
+}
+
+def board_randomize(board, part) {
+    board_each(board): {
+        x = $1.0
+        y = $1.1
+        if get_random_value(0, 1) * part < 1 {
+            board.1.(x).(y) = 1
+        } else {
+            board.1.(x).(y) = 0
+        }
+    }
+}
+
+look = [
+    [  1,   1],
+    [  1,   0],
+    [  1, 0-1],
+    [  0,   1],
+    [  0, 0-1],
+    [0-1,   1],
+    [0-1,   0],
+    [0-1, 0-1]
+]
+
+def board_sum_look(board, x, y) {
+    total = 0
+    i = 0
+    while i < #look {
+        xo = (x + look.(i).0 + board.0.0) % board.0.0
+        yo = (y + look.(i).1 + board.0.1) % board.0.1
+        cur = board.1.(xo).(yo)
+        total = total + cur
+        i = i + 1
+    }
+    return total
+}
+
+def board_next(board, ret) {
+    data = board.1
+    board_each(ret): {
+        x = $1.0
+        y = $1.1
+        cur = data.(x).(y)
+        count = board_sum_look(board, x, y)
+        if count == 2 {
+            val = cur
+        } else :if count == 3 {
+            val = 1
+        } else {
+            val = 0
+        }
+        ret.1.(x).(y) = val
+    }
+}
+
+board = make_board(200, 200)
+offboard = make_board(board.0.0, board.0.01)
+
+board_randomize(board, 3)
+
+init_window(2000, 2000, "GAME OF LIFE")
+
+n = 0
+
+set_target_fps(1000)
+
+while not window_should_close() {
+    xscl = get_screen_width() / board.0.0
+    yscl = get_screen_height() / board.0.1
+    begin_drawing()
+    ## clear_background([0, 0, 0, 255])
+    board_each(board): {
+        x = $1.0
+        y = $1.1
+        cur = board.1.(x).(y)
+        if cur == 1 {
+            c = color_from_hsv(n, 1, 1)
+            c.3 = 12
+            draw_rectangle(x * xscl, y * yscl, xscl, yscl, c)
+        }
+    }
+    end_drawing()
+    n = n + 1
+    board_next(board, offboard)
+    tmp = board
+    board = offboard
+    offboard = tmp
+}
+
+close_window()
