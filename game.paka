@@ -1,10 +1,10 @@
 
 require "raylib.paka"
 
-screen_width = 1920
-screen_height = 1080
+screen_width = 1920 * 3 / 2
+screen_height = 1080 * 3 / 2
 
-size = 64
+size = 48
 
 data = new size
 
@@ -22,36 +22,42 @@ colors = [
 ]
 
 def update(t) {
-    x = GetRandomValue(1, size - 2)
-    z = GetRandomValue(1, size - 2)
-    y = GetRandomValue(1, size - 2)
-    if GetRandomValue(0, 2) < 1 {
-        data.(x).(y).(z) = GetRandomValue(1, 7)
-    } else {
-        data.(x).(y).(z) = 0
+    max = size - 1
+    x = 1
+    while x < max {
+        y = 1
+        while y < max {
+            z = 1
+            while z < max {
+                vx0 = data.(x).(y).(z)
+                vx0 = data.(x-1).(y).(z)
+                vx1 = data.(x+1).(y).(z)
+                vy0 = data.(x).(y-1).(z)
+                vy1 = data.(x).(y+1).(z)
+                vz0 = data.(x).(y).(z-1)
+                vz1 = data.(x).(y).(z+1)
+                
+                k = 0
+                k = k + if vx0 + vx1 != 0 { 1 } else { 0 }
+                k = k + if vy0 + vy1 != 0 { 2 } else { 0 }
+                k = k + if vz0 + vz1 != 0 { 4 } else { 0 }
+                
+                if k != 0 {
+                    if data.(x).(y).(z) != 0 {
+                        data.(x).(y).(z) = k
+                    }
+                }
+                if vx0 + vx1 + vy0 + vy1 + vz0 + vz1 > 0 {
+                    if GetRandomValue(0, 300) < 1 {
+                        data.(x).(y).(z) = k
+                    }
+                }
+                z = z + 1
+            }
+            y = y + 1
+        }
+        x = x + 1
     }
-    ## max = size - 1
-    ## x = 1
-    ## while x < max {
-    ##     y = 1
-    ##     while y < max {
-    ##         z = 1
-    ##         while z < max {
-    ##             xo = x - size / 2
-    ##             yo = y - size / 2
-    ##             zo = z - size / 2
-    ##             v = math:sqrt(xo*xo+yo*yo+zo*zo)
-    ##             if v < t {
-    ##                 data.(x).(y).(z) = 5
-    ##             } else {
-    ##                 data.(x).(y).(z) = 0
-    ##             }
-    ##             z = z + 1
-    ##         }
-    ##         y = y + 1
-    ##     }
-    ##     x = x + 1
-    ## }
 }
 
 def main() {
@@ -78,16 +84,21 @@ def main() {
         x = x + 1
     }
 
+    data.(1).(1).(1) = 7
+
     t = 0
     while 1 {
         t = t + GetFrameTime()
-        update( math:sin(t) * size / 16 + size * 8 / 19 )
+
+        cam."position"."x" = size + 2
+        cam."position"."y" = size + 2
+        cam."position"."z" = size + 2
+
+        update(t)
+
         BeginDrawing()
         ClearBackground(Color(96, 96, 128, 255))
         BeginMode3D(cam)
-        cam."position"."x" = size
-        cam."position"."y" = size
-        cam."position"."z" = size
         
         rlBegin(RL_TRIANGLES)
         
@@ -106,7 +117,7 @@ def main() {
                     if v != 0 {
                         c = colors.(v) rlColor4ub(c.0, c.1, c.2, 255)
                         if vx == 0 {
-                            rlColor4ub(255, 0, 0, 255)
+                            ## rlColor4ub(255, 0, 0, 255)
                             rlVertex3f(x, y,   z)
                             rlVertex3f(x, y,   z+1)
                             rlVertex3f(x, y+1, z)
@@ -115,7 +126,7 @@ def main() {
                             rlVertex3f(x, y,   z+1)
                         }
                         if vy == 0 {
-                            rlColor4ub(0, 255, 0, 255)
+                            ## rlColor4ub(0, 255, 0, 255)
                             rlVertex3f(x,   y, z)
                             rlVertex3f(x+1, y, z)
                             rlVertex3f(x,   y, z+1)
@@ -124,7 +135,7 @@ def main() {
                             rlVertex3f(x+1, y, z)
                         }
                         if vz == 0 {
-                            rlColor4ub(0, 0, 255, 255)
+                            ## rlColor4ub(0, 0, 255, 255)
                             rlVertex3f(x,   y,   z)
                             rlVertex3f(x,   y+1, z)
                             rlVertex3f(x+1, y,   z)
@@ -135,7 +146,7 @@ def main() {
                     } else {
                         if vx != 0{
                             c = colors.(vx) rlColor4ub(c.0, c.1, c.2, 255)
-                            rlColor4ub(255, 0, 0, 255)
+                            ## rlColor4ub(255, 0, 0, 255)
                             rlVertex3f(x, y,   z)
                             rlVertex3f(x, y+1, z)
                             rlVertex3f(x, y,   z+1)
@@ -145,7 +156,7 @@ def main() {
                         }
                         if vy != 0 {
                             c = colors.(vy) rlColor4ub(c.0, c.1, c.2, 255)
-                            rlColor4ub(0, 255, 0, 255)
+                            ## rlColor4ub(0, 255, 0, 255)
                             rlVertex3f(x,   y, z)
                             rlVertex3f(x,   y, z+1)
                             rlVertex3f(x+1, y, z)
@@ -155,8 +166,7 @@ def main() {
                         }
                         if vz != 0 {
                             c = colors.(vz) rlColor4ub(c.0, c.1, c.2, 255)
-                            rlColor4ub(0, 0, 255, 255)
-
+                            ## rlColor4ub(0, 0, 255, 255)
                             rlVertex3f(x,   y,   z)
                             rlVertex3f(x+1, y,   z)
                             rlVertex3f(x,   y+1, z)
@@ -181,6 +191,6 @@ def main() {
 
 SetTraceLogLevel(TraceLogLevel("LOG_WARNING"))
 InitWindow(screen_width, screen_height, "vmine")
-SetTargetFPS(120)
+## SetTargetFPS(120)
 main()
 CloseWindow()
