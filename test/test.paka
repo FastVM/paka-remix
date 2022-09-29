@@ -1,0 +1,9 @@
+n = 100
+v = new n
+x = 0
+while x < n {
+    v.(x) = x
+    x = x + 1
+    print(x)
+}
+print(v)

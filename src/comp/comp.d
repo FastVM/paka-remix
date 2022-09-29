@@ -143,11 +143,14 @@ struct Compiler {
         popBuf;
     }
 
-    Output emitReg(Output from, Output to) {
-        if (!from.isNone && from != to) {
-            putStrSep(to, "<- reg", from);
+    void emitReg(Output from, Output to) {
+        if (!to.isNone && from != to) {
+            if (from.isNone) {
+                putStrSep(to, "<- nil");
+            } else {
+                putStrSep(to, "<- reg", from);
+            }
         }
-        return to;
     }
 
     Output emitNode(Node node) {
@@ -189,8 +192,8 @@ struct Compiler {
         if (ident.repr[0] == '$' && ident.repr[1 .. $].isNumeric) {
             return Output.imut(ident.repr[1 .. $].to!size_t + 1);
         }
-        if (ident.repr in locals) {
-            return Output.imut(locals[ident.repr]);
+        if (size_t *name = ident.repr in locals) {
+            return Output.imut(*name);
         }
         if (ident.repr !in nonlocals) {
             size_t count = nonlocals.length;
@@ -427,6 +430,7 @@ struct Compiler {
                         if (output.isNone) {
                             output = Output.imut(allocReg);
                         }
+                        // writeln(used.length.to!string, ": ", id.repr);
                         putStrSep(output, "<- xcall", used.length.to!string, args.map!(to!string)
                                 .joiner(" "));
                         used ~= *func;
@@ -539,6 +543,7 @@ struct Compiler {
                     }
                     Output outreg = Output.imut(locals[ident.repr]);
                     emitNode(form.args[1], outreg);
+                    // assert(from.reg == outreg.reg);
                     return outreg;
                 } else if (Form args = cast(Form) form.args[0]) {
                     switch (args.form) {

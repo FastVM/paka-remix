@@ -15,6 +15,16 @@ buildType "asan" {
 	dflags "-g" "-fsanitize=address"
 	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
 }
+buildType "ubsan" {
+	dflags "-g"
+	lflags "-lubsan"
+	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
+}
+buildType "asan-ubsan" {
+	dflags "-g" "-fsanitize=address"
+	lflags "-lubsan"
+	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-g3 -fsanitize=address -fno-sanitize=leak'"
+}
 buildType "release" {
 	preGenerateCommands "make -C minivm -Bj bin/libminivm.a OPT='-O3 -ffast-math -fomit-frame-pointer'"
 	dflags:ldc "-release"

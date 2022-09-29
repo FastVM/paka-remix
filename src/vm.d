@@ -13,16 +13,20 @@ struct Buffer {
     size_t nops;
 }
 
+union Data {
+    void[8] data;
+    Data *ptr;
+}
+
 extern (C) ubyte *vm_alloc0(size_t size) {
-    // ubyte *ret = new ubyte[size + size_t.sizeof].ptr;
-    ubyte *ret = cast(ubyte*) new void*[size / 8 + 2].ptr;
-    
+    if (size > ptrdiff_t.max) {
+        asm {
+            int 3;
+        }
+    }
+    ubyte *ret = cast(ubyte*) new Data[size / size_t.sizeof + 2].ptr;
     *cast(size_t*)ret = size;
     ret += size_t.sizeof;
-    foreach (i; 0..size) {
-        ret[i] = 0;
-    }
-    // writeln(ret[size_t.sizeof..size_t.sizeof + size]);
     return ret;
 }
 
@@ -86,6 +90,7 @@ union Value {
         unknown,
         nil,
         bool_,
+        int_,
         float_,
         func,
         array,
@@ -223,6 +228,7 @@ union Value {
     }
 
     int toInt() {
+        assert(isInt);
         return * cast(int*) &as_bits.payload;
     }
 
@@ -249,8 +255,10 @@ union Value {
         assert(isPtr);
         if (ptrType == Type.array) {
             return vm_gc_len(this);
+        } else if (ptrType == Type.table) {
+            assert(false, "bad type for length: table");
         } else {
-            return 0;
+            assert(false, "bad type for length");
         }
     }
 
@@ -281,21 +289,21 @@ union Value {
         }
     }
 
-    Value rawCall(Value[] args) {
-        foreach (key, value; args) {
-            state.locals[key + 1] = value;
-        }
-        Value ret = vm_int_run(&state, cast(void*) toPtr);
-        return ret;
-    }
+    // Value rawCall(Value[] args) {
+    //     foreach (key, value; args) {
+    //         state.locals[key + 1] = value;
+    //     }
+    //     Value ret = vm_int_run(&state, cast(void*) toPtr);
+    //     return ret;
+    // }
 
-    Value opCall(Params...)(Params params) {
-        Value[] args = [this];
-        static foreach (param; params) {
-            args ~= param;
-        }
-        return this[0].rawCall(args);
-    }
+    // Value opCall(Params...)(Params params) {
+    //     Value[] args = [this];
+    //     static foreach (param; params) {
+    //         args ~= param;
+    //     }
+    //     return this[0].rawCall(args);
+    // }
 
     bool opCast(T : bool)() const {
         return val != 0;
@@ -386,15 +394,30 @@ struct Mem {
     size_t nstack;
 }
 
+struct Profile {
+    double timestamp_unit;
+    ulong is_json;
+    bool function(Profile *self, void *data, size_t length) write;
+    bool function(Profile *self) flush;
+    union Value {
+        FILE *file;
+        void *userdata;
+    }
+    Value value;
+} 
+
 struct State {
     void** heads;
     size_t framesize;
     Delegate* funcs;
     Value* locals;
     Mem gc;
+    FILE *debug_print_instrs;
+    Profile spall_ctx;
+    bool use_spall;
 }
 
-alias Function = Value delegate(Value[] args);
+alias Function = Value function(Value[] args);
 
 struct Delegate {
     void* data;
@@ -454,16 +477,28 @@ extern (C) Buffer vm_asm(const char* src);
 
 extern (C) Value vm_call(void* data, State *vstate, size_t nvalues, Value* values) {
     state = *vstate;
-    return (* cast(Function*) data)(values[0..nvalues]);
+    // writeln((* cast(Function*) data).funcptr, values[0..nvalues]);
+    Value ret = (* cast(Function*) data)(values[0..nvalues]);
+    return ret;
 }
 
-void run(string src, Function[] funcs) {
+extern (C) void vm_main_spall_init(State *state, const char *name);
+extern (C) void vm_main_spall_deinit(State *state);
+
+void run(string src, Function[] funcs, bool spall) {
     Delegate[] deles = null;
     foreach (func; funcs) {
         deles ~= Delegate(cast(void*) [func].ptr, &vm_call);
     }
     state.funcs = deles.ptr;
+    if (spall) {
+        vm_main_spall_init(&state, "out.spall");
+    }
+    // state.debug_print_instrs = fopen("out.trace", "wb");
     Buffer buf = vm_asm(src.toStringz);
     Block *blocks = vm_ir_parse(buf.nops, buf.ops);
     cast(void) vm_int_run(&state, &blocks[0]);
+    if (spall) {
+        vm_main_spall_deinit(&state);
+    }
 }

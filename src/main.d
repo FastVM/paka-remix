@@ -5,6 +5,7 @@ import std.algorithm;
 import std.array;
 import std.conv;
 import std.file;
+import std.getopt;
 import std.math;
 import std.parallelism: taskPool, task;
 import std.range;
@@ -151,7 +152,17 @@ version (GNU) {
     extern(C) const char *raylibVersion = "4.0.1";
 }
 
+enum ptrdiff_t[string] over(alias T)() {
+    ptrdiff_t[string] map = null;
+    static foreach (n; EnumMembers!(T)) {
+        map[n.to!string] = cast(ptrdiff_t) n;
+    }
+    return map;
+}
+
 void main(string[] args) {
+    bool spall = false;
+    auto help = getopt(args, "spall", &spall);
     string src = args[1].readText;
     Function[string] funcs;
     funcs["print"] = (Value[] args) {
@@ -167,13 +178,9 @@ void main(string[] args) {
     static foreach (m; __traits(allMembers, raylib)) {
         static if (is(__traits(getMember, raylib, m) == enum)) {
             {
-                ptrdiff_t[string] map = null;
-                static foreach (n; EnumMembers!(__traits(getMember, raylib, m))) {
-                    map[n.to!string] = cast(ptrdiff_t) n;
-                }
                 funcs[m] = (Value[] values) {
                     string name = fromValue!string(values[0]);
-                    if (auto v = name in map) {
+                    if (auto v = name in over!(__traits(getMember, raylib, m))) {
                         return toValue(*v);
                     } else {
                         throw new Exception("enum key error: `" ~ name ~ "` (enum: " ~ m ~ ")");
@@ -190,13 +197,9 @@ void main(string[] args) {
     static foreach (m; __traits(allMembers, raylib.rlgl)) {
         static if (is(__traits(getMember, raylib.rlgl, m) == enum)) {
             {
-                ptrdiff_t[string] map = null;
-                static foreach (n; EnumMembers!(__traits(getMember, raylib.rlgl, m))) {
-                    map[n.to!string] = cast(ptrdiff_t) n;
-                }
                 funcs[m] = (Value[] values) {
                     string name = fromValue!string(values[0]);
-                    if (auto v = name in map) {
+                    if (auto v = name in over!(__traits(getMember, raylib.rlgl, m))) {
                         return toValue(*v);
                     } else {
                         throw new Exception("enum key error: " ~ name);
@@ -210,7 +213,6 @@ void main(string[] args) {
             };
         }
     }
-    Value table = vm_gc_tab(&state.gc); 
     static foreach (k; ["algebraic", "constants", "exponential", "operations", "remainder", "rounding", "traits", "trigonometry"])
     {
         {
@@ -236,5 +238,5 @@ void main(string[] args) {
     };
     Result res = SrcLoc(args[1], src).parseUncached.compileProgram(funcs);
     File("out.vasm", "w").writeln(res.src);
-    run(res.src, res.funcs);
+    run(res.src, res.funcs, spall);
 }
