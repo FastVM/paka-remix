@@ -189,7 +189,7 @@ def main() {
     }
 }
 
-SetTraceLogLevel(TraceLogLevel("LOG_WARNING"))
+SetTraceLogLevel(4)
 InitWindow(screen_width, screen_height, "vmine")
 ## SetTargetFPS(120)
 main()

@@ -79,6 +79,9 @@ struct Table {
 }
 
 union Value {
+    enum MIN_NUMBER = 0x0006000000000000;
+    enum HIGH16_TAG = 0xffff000000000000;
+
     enum Type : ubyte {
         unknown,
         nil,
@@ -215,11 +218,31 @@ union Value {
         assert(isPtr);
     }
 
-    double toNumber() {
+    this(int n) {
+        as_int64 = MIN_NUMBER | *cast(uint*)&n;
+    }
+
+    int toInt() {
+        return * cast(int*) &as_bits.payload;
+    }
+
+    bool isInt() {
+        return (as_int64 & HIGH16_TAG) == MIN_NUMBER;
+    }
+
+    double toFloat() {
         assert(isNumber);
         Value val = this;
         val.as_int64 -= 0x0007000000000000;
         return val.as_double;
+    }
+
+    double toNumber() {
+        if (isInt) {
+            return cast(double) toInt;
+        } else {
+            return toFloat;
+        }
     }
 
     size_t length() {

@@ -1,4 +1,4 @@
-name "minivm-paka"
+name "paka"
 description "paka-remix"
 authors "Shaw Summa"
 copyright "Copyright © 2022, Shaw Summa"
@@ -20,7 +20,7 @@ buildType "release" {
 	dflags:ldc "-release"
 	dflags:gdc "-frelease"
 }
-dependency "raylib-d" version="4.0.1"
+dependency "raylib-d" version="4.2.0"
 lflags "minivm/bin/libminivm.a" "-l:libraylib.a"
-sourcePaths "paka"
-stringImportPaths "paka"
+sourcePaths "src"
+stringImportPaths "src"

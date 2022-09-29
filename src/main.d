@@ -21,7 +21,7 @@ import paka.comp.comp;
 import paka.vm;
 
 static import raylib;
-static import rlgl;
+static import raylib.rlgl;
 
 Value toValue(Type)(Type arg) if (is(Type == bool)) {
     return Value(arg);
@@ -176,7 +176,7 @@ void main(string[] args) {
                     if (auto v = name in map) {
                         return toValue(*v);
                     } else {
-                        throw new Exception("enum key error: " ~ name);
+                        throw new Exception("enum key error: `" ~ name ~ "` (enum: " ~ m ~ ")");
                     }
                 };
             }
@@ -187,11 +187,11 @@ void main(string[] args) {
             };
         }
     }
-    static foreach (m; __traits(allMembers, rlgl)) {
-        static if (is(__traits(getMember, rlgl, m) == enum)) {
+    static foreach (m; __traits(allMembers, raylib.rlgl)) {
+        static if (is(__traits(getMember, raylib.rlgl, m) == enum)) {
             {
                 ptrdiff_t[string] map = null;
-                static foreach (n; EnumMembers!(__traits(getMember, rlgl, m))) {
+                static foreach (n; EnumMembers!(__traits(getMember, raylib.rlgl, m))) {
                     map[n.to!string] = cast(ptrdiff_t) n;
                 }
                 funcs[m] = (Value[] values) {
@@ -204,9 +204,9 @@ void main(string[] args) {
                 };
             }
         }
-        static if (__traits(isStaticFunction, __traits(getMember, rlgl, m))) {
+        static if (__traits(isStaticFunction, __traits(getMember, raylib.rlgl, m))) {
             funcs[m] = (Value[] values) {
-                return toFunc!(__traits(getMember, rlgl, m))(values);
+                return toFunc!(__traits(getMember, raylib.rlgl, m))(values);
             };
         }
     }
